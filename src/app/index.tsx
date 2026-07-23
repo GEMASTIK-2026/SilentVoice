@@ -1,98 +1,132 @@
-import * as Device from 'expo-device';
-import { Platform, StyleSheet } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import React, { useEffect } from 'react';
+import { View } from 'react-native';
+import { StatusBar } from 'expo-status-bar';
+import { useRouter } from 'expo-router';
+import { Image } from 'expo-image';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withTiming,
+  withSequence,
+  withDelay,
+  Easing,
+  runOnJS,
+} from 'react-native-reanimated';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import * as SplashScreen from 'expo-splash-screen';
 
-import { AnimatedIcon } from '@/components/animated-icon';
-import { HintRow } from '@/components/hint-row';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { WebBadge } from '@/components/web-badge';
-import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
+export default function SplashScreenComponent() {
+  const router = useRouter();
+  const insets = useSafeAreaInsets();
 
-function getDevMenuHint() {
-  if (Platform.OS === 'web') {
-    return <ThemedText type="small">use browser devtools</ThemedText>;
-  }
-  if (Device.isDevice) {
-    return (
-      <ThemedText type="small">
-        shake device or press <ThemedText type="code">m</ThemedText> in terminal
-      </ThemedText>
+  // Reanimated shared values for entrance/exit animations
+  const opacity = useSharedValue(0);
+  const scale = useSharedValue(0.92);
+
+  const navigateToNext = async () => {
+    try {
+      const hasOnboarded = await AsyncStorage.getItem('has_onboarded');
+      if (hasOnboarded === 'true') {
+        router.replace('/home');
+      } else {
+        router.replace('/onboarding');
+      }
+    } catch {
+      router.replace('/onboarding');
+    }
+  };
+
+  useEffect(() => {
+    // Hide native splash screen immediately
+    SplashScreen.hideAsync().catch(() => {});
+
+    // Animation Sequence:
+    // 1. Fade-in & scale up (1000ms)
+    // 2. Hold visible (700ms)
+    // 3. Fade-out & subtle scale expansion (600ms) -> navigate to next screen
+    opacity.value = withSequence(
+      withTiming(1, {
+        duration: 1000,
+        easing: Easing.out(Easing.cubic),
+      }),
+      withDelay(
+        700,
+        withTiming(
+          0,
+          {
+            duration: 600,
+            easing: Easing.in(Easing.cubic),
+          },
+          (finished) => {
+            if (finished) {
+              runOnJS(navigateToNext)();
+            }
+          }
+        )
+      )
     );
-  }
-  const shortcut = Platform.OS === 'android' ? 'cmd+m (or ctrl+m)' : 'cmd+d';
+
+    scale.value = withSequence(
+      withTiming(1.0, {
+        duration: 1000,
+        easing: Easing.out(Easing.cubic),
+      }),
+      withDelay(
+        700,
+        withTiming(1.06, {
+          duration: 600,
+          easing: Easing.in(Easing.cubic),
+        })
+      )
+    );
+  }, [router, opacity, scale]);
+
+  // Combined animated style for background Glow & Logo
+  const animatedContainerStyle = useAnimatedStyle(() => ({
+    opacity: opacity.value,
+    transform: [{ scale: scale.value }],
+  }));
+
   return (
-    <ThemedText type="small">
-      press <ThemedText type="code">{shortcut}</ThemedText>
-    </ThemedText>
+    <View
+      className="flex-1 bg-white items-center justify-center relative overflow-hidden"
+      style={{
+        paddingTop: insets.top,
+        paddingBottom: insets.bottom,
+        paddingLeft: insets.left,
+        paddingRight: insets.right,
+      }}
+    >
+      <StatusBar style="dark" />
+
+      {/* Main Animated Wrapper for Fade-In & Fade-Out sequence */}
+      <Animated.View
+        style={animatedContainerStyle}
+        className="flex-1 w-full items-center justify-center relative"
+      >
+        {/* Ambient Glow Background Layer (Stacked behind logo) */}
+        <View className="absolute inset-0 items-center justify-center" pointerEvents="none">
+          <Image
+            source={require('@/assets/images/Glow.webp')}
+            style={{ width: '100%', height: '100%' }}
+            contentFit="contain"
+            transition={0}
+            alt="Silent Voice Glow"
+          />
+        </View>
+
+        {/* Centered Silent Voice Logo Layer */}
+        <View className="z-10 items-center justify-center">
+          <Image
+            source={require('@/assets/images/LogoSV.webp')}
+            style={{ width: 250, height: 250 }}
+            contentFit="contain"
+            transition={0}
+            alt="Silent Voice Logo"
+          />
+        </View>
+      </Animated.View>
+    </View>
   );
 }
-
-export default function HomeScreen() {
-  return (
-    <ThemedView style={styles.container}>
-      <SafeAreaView style={styles.safeArea}>
-        <ThemedView style={styles.heroSection}>
-          <AnimatedIcon />
-          <ThemedText type="title" style={styles.title}>
-            Welcome to&nbsp;Expo
-          </ThemedText>
-        </ThemedView>
-
-        <ThemedText type="code" style={styles.code}>
-          get started
-        </ThemedText>
-
-        <ThemedView type="backgroundElement" style={styles.stepContainer}>
-          <HintRow
-            title="Try editing"
-            hint={<ThemedText type="code">src/app/index.tsx</ThemedText>}
-          />
-          <HintRow title="Dev tools" hint={getDevMenuHint()} />
-          <HintRow
-            title="Fresh start"
-            hint={<ThemedText type="code">npm run reset-project</ThemedText>}
-          />
-        </ThemedView>
-
-        {Platform.OS === 'web' && <WebBadge />}
-      </SafeAreaView>
-    </ThemedView>
-  );
-}
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    justifyContent: 'center',
-    flexDirection: 'row',
-  },
-  safeArea: {
-    flex: 1,
-    paddingHorizontal: Spacing.four,
-    alignItems: 'center',
-    gap: Spacing.three,
-    paddingBottom: BottomTabInset + Spacing.three,
-    maxWidth: MaxContentWidth,
-  },
-  heroSection: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    flex: 1,
-    paddingHorizontal: Spacing.four,
-    gap: Spacing.four,
-  },
-  title: {
-    textAlign: 'center',
-  },
-  code: {
-    textTransform: 'uppercase',
-  },
-  stepContainer: {
-    gap: Spacing.three,
-    alignSelf: 'stretch',
-    paddingHorizontal: Spacing.three,
-    paddingVertical: Spacing.four,
-    borderRadius: Spacing.four,
-  },
-});

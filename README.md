@@ -1,56 +1,133 @@
-# Welcome to your Expo app 👋
+# 🤟 Silent Voice
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+<p align="center">
+  <img src="./src/assets/images/LogoSV.webp" width="160" alt="Silent Voice Logo" />
+</p>
 
-## Get started
+<p align="center">
+  <b>Aplikasi Penerjemah & Konversi Bahasa Isyarat Real-Time Berbasis Mobile</b>
+</p>
 
-1. Install dependencies
+<p align="center">
+  <img src="https://img.shields.io/badge/Expo-57.0.8-000000?style=for-the-badge&logo=expo&logoColor=white" alt="Expo" />
+  <img src="https://img.shields.io/badge/React_Native-0.86.0-61DAFB?style=for-the-badge&logo=react&logoColor=black" alt="React Native" />
+  <img src="https://img.shields.io/badge/TypeScript-6.0-3178C6?style=for-the-badge&logo=typescript&logoColor=white" alt="TypeScript" />
+  <img src="https://img.shields.io/badge/NativeWind-v5-38BDF8?style=for-the-badge&logo=tailwindcss&logoColor=white" alt="NativeWind" />
+</p>
 
-   ```bash
-   npm install
-   ```
+---
 
-2. Start the app
+## 📌 Tentang Silent Voice
 
-   ```bash
-   npx expo start
-   ```
+**Silent Voice** adalah aplikasi mobile inovatif yang dirancang untuk membantu menjembatani komunikasi antara **Teman Tuli** dan masyarakat luas. Aplikasi ini mengintegrasikan pemindaian kamera secara langsung (*live camera preview*) untuk mengonversi isyarat tangan menjadi output teks dan suara secara *real-time*.
 
-In the output, you'll find options to open the app in a
+> [!IMPORTANT]
+> Proyek ini dikembangkan dengan **Expo SDK 57**, menggunakan **Expo Router** untuk navigasi *file-based*, serta **NativeWind** untuk *styling system* yang responsif dan modern.
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
+---
 
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
+## ✨ Fitur Utama
 
-## Get a fresh project
+- 🎥 **Live Camera Viewfinder**: Fitur kamera interaktif dengan sudut bingkai *viewfinder* hijau untuk memandu posisi subjek.
+- ⚡ **Kontrol Kamera Pintar**:
+  - **Torch / Senter**: Kontrol senter LED belakang dengan logika pencegahan otomatis (*auto-disabled*) di kamera depan.
+  - **Flip Camera**: Beralih kamera depan dan belakang dengan *smooth remounting*.
+  - **Indikator Rekam**: Mode aktif perekaman dan pemrosesan bahasa isyarat.
+- 👤 **Onboarding & Profil Pengguna**: Alur alur pengisian data awal (Nama, Usia, Jenis Kelamin) yang tersimpan secara lokal menggunakan `AsyncStorage`.
+- 🏠 **Dashboard Utama (Home)**:
+  - Ringkasan histori percakapan terakhir.
+  - Informasi ketepatan konversi bahasa isyarat.
+  - Pengaturan output suara.
+- ❓ **Pusat Bantuan (Help Center)**:
+  - Tab navigasi **FaQ**, **Kamus Bahasa Isyarat**, dan **History**.
+  - Panduan penggunaan *gesture*, kalibrasi suara, dan pengaturan akun.
+- 🛠️ **Dev-Friendly Mode**: Dilengkapi fitur **Logout DEV** (hanya muncul saat mode `__DEV__`) untuk memudahkan pengujian alur onboarding.
 
-When you're ready, run:
+---
 
-```bash
-npm run reset-project
+## 🛠️ Teknologi & Dependensi
+
+| Teknologi / Modul | Deskripsi |
+| :--- | :--- |
+| **Expo SDK 57** | Core framework pengembangan mobile cross-platform |
+| **React Native 0.86** | UI Engine utama aplikasi |
+| **Expo Router v57** | Declarative file-based routing system (`src/app/`) |
+| **NativeWind v5** | Tailwind CSS styling engine untuk React Native |
+| **expo-camera** | Modul kamera native untuk preview dan kontrol hardware |
+| **expo-symbols** | Cross-platform icon system (SF Symbols di iOS & Material Symbols di Android/Web) |
+| **AsyncStorage** | Penyimpanan data lokal untuk profil dan status onboarding |
+| **Reanimated & Font** | Animasi *splash screen* & kustomisasi font **Hanken Grotesk** |
+
+---
+
+## 📁 Struktur Direktori Proyek
+
+```text
+SilentVoice/
+├── assets/                    # Aset statis awal projek
+├── src/
+│   ├── app/                   # Halaman utama (Expo Router file-based)
+│   │   ├── _layout.tsx        # Root layout, penanganan Font & Splash Screen
+│   │   ├── index.tsx          # Splash Screen animasi & Cek Onboarding
+│   │   ├── onboarding.tsx     # Form pengisian profil pengguna
+│   │   ├── home.tsx           # Dashboard utama aplikasi
+│   │   ├── record.tsx         # Live Camera Preview & Konversi
+│   │   └── help.tsx           # Pusat Bantuan, FaQ & Kamus
+│   ├── assets/
+│   │   ├── fonts/             # Font kustom Hanken Grotesk (Regular -> ExtraBold)
+│   │   └── images/            # Logo & Gambar Background (.webp)
+│   ├── components/            # Komponen UI reusable
+│   │   ├── bottom-navigation-bar.tsx  # Navigation Bar Bawah
+│   │   └── ui/               # Komponen UI tambahan
+│   └── global.css             # Import Tailwind CSS & Deklarasi Font
+├── app.json                   # Konfigurasi Expo & Plugin Izin Kamera
+├── package.json               # Dependensi & script npm
+└── tsconfig.json              # Konfigurasi TypeScript & Alias `@/*`
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+---
 
-### Other setup steps
+## 🚀 Panduan Memulai Development
 
-- To set up ESLint for linting, run `npx expo lint`, or follow our guide on ["Using ESLint and Prettier"](https://docs.expo.dev/guides/using-eslint/)
-- If you'd like to set up unit testing, follow our guide on ["Unit Testing with Jest"](https://docs.expo.dev/develop/unit-testing/)
-- Learn more about the TypeScript setup in this template in our guide on ["Using TypeScript"](https://docs.expo.dev/guides/typescript/)
+### 1. Prasyarat
+Pastikan Anda telah menginstal:
+- [Node.js](https://nodejs.org/) (versi 18 LTS atau lebih baru)
+- Aplikasi **Expo Go** di HP Anda (Android/iOS) atau Emulator.
 
-## Learn more
+### 2. Instalasi Dependensi
+Jalankan perintah berikut di terminal:
 
-To learn more about developing your project with Expo, look at the following resources:
+```bash
+npm install
+```
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+### 3. Memulai Development Server
+Jalankan perintah berikut untuk membuka Expo CLI:
 
-## Join the community
+```bash
+npx expo start
+```
 
-Join our community of developers creating universal apps.
+Pilihan opsi eksekusi:
+- **Android Emulator**: Tekan `a` pada terminal
+- **iOS Simulator**: Tekan `i` pada terminal
+- **Expo Go (Device Fisik)**: Scan QR Code yang muncul di terminal menggunakan aplikasi Expo Go / Kamera HP.
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+---
+
+## 🧪 Perintah Pengujian
+
+- **Type Checking (TypeScript)**:
+  ```bash
+  npx tsc --noEmit
+  ```
+- **Linting**:
+  ```bash
+  npm run lint
+  ```
+
+---
+
+<p align="center">
+  <sub>Dikembangkan dengan ❤️ untuk kemudahan komunikasi ramah disabilitas.</sub>
+</p>

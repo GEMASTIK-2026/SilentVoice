@@ -16,11 +16,7 @@ export function WebBadge() {
         v{version}
       </ThemedText>
       <Image
-        source={
-          scheme === 'dark'
-            ? require('@/assets/images/expo-badge-white.png')
-            : require('@/assets/images/expo-badge.png')
-        }
+        source={require('@/assets/images/LogoSV.webp')}
         style={styles.badgeImage}
       />
     </ThemedView>

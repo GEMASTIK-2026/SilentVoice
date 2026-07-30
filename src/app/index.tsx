@@ -1,9 +1,10 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { useEffect } from 'react';
-import { View } from 'react-native';
+import { Text, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useRouter } from 'expo-router';
 import { Image } from 'expo-image';
+import { LinearGradient } from 'expo-linear-gradient';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -23,6 +24,7 @@ export default function SplashScreenComponent() {
   // Reanimated shared values for entrance/exit animations
   const opacity = useSharedValue(0);
   const scale = useSharedValue(0.92);
+  const progress = useSharedValue(0);
 
   const navigateToNext = async () => {
     try {
@@ -40,6 +42,12 @@ export default function SplashScreenComponent() {
   useEffect(() => {
     // Hide native splash screen immediately
     SplashScreen.hideAsync().catch(() => {});
+
+    // Animate progress bar from 0 to 100%
+    progress.value = withTiming(1, {
+      duration: 1600,
+      easing: Easing.out(Easing.quad),
+    });
 
     // Animation Sequence:
     // 1. Fade-in & scale up (1000ms)
@@ -80,12 +88,16 @@ export default function SplashScreenComponent() {
         })
       )
     );
-  }, [router, opacity, scale]);
+  }, [router, opacity, scale, progress]);
 
   // Combined animated style for background Glow & Logo
   const animatedContainerStyle = useAnimatedStyle(() => ({
     opacity: opacity.value,
     transform: [{ scale: scale.value }],
+  }));
+
+  const progressBarStyle = useAnimatedStyle(() => ({
+    width: `${progress.value * 100}%`,
   }));
 
   return (
@@ -125,6 +137,23 @@ export default function SplashScreenComponent() {
             transition={0}
             alt="Silent Voice Logo"
           />
+        </View>
+
+        {/* Loading Bar & Status Text */}
+        <View className="absolute bottom-16 items-center w-full px-12 gap-3 z-10">
+          <Text className="text-[13.5px] font-hanken-medium text-slate-500 tracking-wide">
+            Initializing securely...
+          </Text>
+          <View className="w-52 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+            <Animated.View style={[progressBarStyle, { height: '100%' }]} className="rounded-full overflow-hidden">
+              <LinearGradient
+                colors={['#0E8549', '#13A35B', '#34D399']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={{ width: '100%', height: '100%' }}
+              />
+            </Animated.View>
+          </View>
         </View>
       </Animated.View>
     </View>

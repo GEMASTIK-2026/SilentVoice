@@ -3,10 +3,12 @@ import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { SymbolView, type SFSymbol, type AndroidSymbol } from 'expo-symbols';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { BottomNavigationBar } from '@/components/bottom-navigation-bar';
+
+import { TutorialModal } from '@/components/tutorial-modal';
 
 type HelpSubTab = 'faq' | 'kamus' | 'history';
 
@@ -19,9 +21,17 @@ interface MenuItem {
     android: AndroidSymbol;
     web: AndroidSymbol;
   };
+  isTutorial?: boolean;
 }
 
 const FAQ_ITEMS: MenuItem[] = [
+  {
+    id: 'tutorial',
+    title: 'Panduan & Tutorial Aplikasi',
+    subtitle: 'Pelajari cara kerja Lipreading SilentVoice',
+    icon: { ios: 'play.circle.fill', android: 'play_circle', web: 'play_circle' },
+    isTutorial: true,
+  },
   {
     id: '1',
     title: 'How to use gestures?',
@@ -51,10 +61,32 @@ const FAQ_ITEMS: MenuItem[] = [
 export default function HelpScreen() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<HelpSubTab>('faq');
+  const [showTutorialModal, setShowTutorialModal] = useState(false);
+
+  useEffect(() => {
+    const checkTutorial = async () => {
+      try {
+        const hasSeenHelpTutorial = await AsyncStorage.getItem('has_seen_help_tutorial');
+        if (hasSeenHelpTutorial !== 'true') {
+          setShowTutorialModal(true);
+          await AsyncStorage.setItem('has_seen_help_tutorial', 'true');
+        }
+      } catch (e) {
+        console.error('Gagal mengecek status tutorial bantuan:', e);
+      }
+    };
+    checkTutorial();
+  }, []);
 
   const handleDevLogout = async () => {
     try {
-      await AsyncStorage.multiRemove(['has_onboarded', 'user_profile']);
+      await AsyncStorage.multiRemove([
+        'has_onboarded',
+        'user_profile',
+        'has_seen_tutorial',
+        'has_seen_record_tutorial',
+        'has_seen_help_tutorial',
+      ]);
       router.replace('/onboarding');
     } catch (e) {
       console.error('Gagal logout:', e);
@@ -269,15 +301,19 @@ export default function HelpScreen() {
                 <Pressable
                   key={item.id}
                   onPress={() => {
-                    if (item.id === '3' && __DEV__) {
+                    if (item.isTutorial) {
+                      setShowTutorialModal(true);
+                    } else if (item.id === '3' && __DEV__) {
                       handleDevLogout();
                     }
                   }}
-                  className="bg-white rounded-3xl p-5 flex-row items-center justify-between border border-slate-100/80 active:opacity-80"
+                  className={`bg-white rounded-3xl p-5 flex-row items-center justify-between border active:opacity-80 ${
+                    item.isTutorial ? 'border-[#0E8549]/40 bg-[#E8F8F0]/30' : 'border-slate-100/80'
+                  }`}
                   style={{
-                    shadowColor: '#000000',
+                    shadowColor: item.isTutorial ? '#0E8549' : '#000000',
                     shadowOffset: { width: 0, height: 4 },
-                    shadowOpacity: 0.05,
+                    shadowOpacity: item.isTutorial ? 0.08 : 0.05,
                     shadowRadius: 14,
                     elevation: 3,
                   }}
@@ -288,7 +324,7 @@ export default function HelpScreen() {
                       <SymbolView
                         name={item.icon}
                         tintColor="#0E8549"
-                        size={22}
+                        size={item.isTutorial ? 26 : 22}
                       />
                     </View>
 
@@ -305,7 +341,7 @@ export default function HelpScreen() {
                   {/* Right Section: Arrow Chevron */}
                   <SymbolView
                     name={{ ios: 'chevron.right', android: 'arrow_forward', web: 'arrow_forward' }}
-                    tintColor="#CBD5E1"
+                    tintColor={item.isTutorial ? '#0E8549' : '#CBD5E1'}
                     size={20}
                   />
                 </Pressable>
@@ -352,6 +388,16 @@ export default function HelpScreen() {
         {/* ── Bottom Navigation Bar ── */}
         <BottomNavigationBar activeTab="help" />
       </View>
+
+      {/* ── Tutorial Modal (Manual Replay from Help screen) ── */}
+      <TutorialModal
+        visible={showTutorialModal}
+        onClose={() => setShowTutorialModal(false)}
+        onStartSpotlight={() => {
+          setShowTutorialModal(false);
+          router.push('/record?startTutorial=true');
+        }}
+      />
     </SafeAreaView>
   );
 }

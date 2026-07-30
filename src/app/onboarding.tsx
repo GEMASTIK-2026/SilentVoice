@@ -5,13 +5,6 @@ import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { SymbolView } from 'expo-symbols';
 import { useState } from 'react';
-import Animated, {
-  useAnimatedStyle,
-  useSharedValue,
-  withSequence,
-  withSpring,
-  withTiming,
-} from 'react-native-reanimated';
 import {
   Keyboard,
   KeyboardAvoidingView,
@@ -23,7 +16,68 @@ import {
   TouchableWithoutFeedback,
   View,
 } from 'react-native';
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+  withSequence,
+  withSpring,
+  withTiming,
+} from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
+import { SpotlightOverlay, type SpotlightStep } from '@/components/spotlight-overlay';
+
+const ONBOARDING_SPOTLIGHT_STEPS: SpotlightStep[] = [
+  {
+    tooltipOffset: -45,
+    id: 'welcome',
+    title: 'Selamat Datang di SilentVoice',
+    description:
+      'Aplikasi kecerdasan buatan pembaca gerak bibir (Lipreading) yang dirancang khusus untuk membantu komunikasi pasien laringektomi.',
+    icon: { ios: 'hand.wave.fill', android: 'waving_hand', web: 'waving_hand' },
+    tooltipPosition: 'bottom',
+    highlightArea: {
+      top: 220,
+      width:365,
+      height: 155,
+      left: 24,
+      right: 24,
+      borderRadius: 28,
+    },
+  },
+  {
+    id: 'profile_form',
+    title: 'Pengisian Data Diri',
+    description:
+      'Silakan masukkan nama panggilan, usia, dan jenis kelamin Anda pada kolom teks & tombol pilihan berikut.',
+    icon: { ios: 'text.cursor', android: 'edit_note', web: 'edit_note' },
+    tooltipPosition: 'top',
+    tooltipOffset: 20,
+    highlightArea: {
+      top: 445,
+      height: 220,
+      left: 20,
+      right: 20,
+      borderRadius: 24,
+    },
+  },
+  {
+    id: 'submit_button',
+    title: 'Tekan Tombol Selanjutnya',
+    description:
+      'Setelah semua data terisi dengan lengkap, tekan tombol Selanjutnya ini untuk menyimpan data profil Anda.',
+    icon: { ios: 'arrow.right.circle.fill', android: 'arrow_forward', web: 'arrow_forward' },
+    tooltipPosition: 'top',
+    tooltipOffset: 20,
+    highlightArea: {
+      bottom: 144,
+      height: 63,
+      left: 24,
+      right: 24,
+      borderRadius: 16,
+    },
+  },
+];
 
 export default function OnboardingLoginScreen() {
   const insets = useSafeAreaInsets();
@@ -32,6 +86,10 @@ export default function OnboardingLoginScreen() {
   const [name, setName] = useState('');
   const [age, setAge] = useState('');
   const [gender, setGender] = useState<'pria' | 'wanita' | null>(null);
+
+  // Spotlight tutorial (otomatis muncul pertama kali)
+  const [showSpotlight, setShowSpotlight] = useState(true);
+  const [currentStepIndex, setCurrentStepIndex] = useState(0);
 
   // Validation error states
   const [errors, setErrors] = useState({
@@ -240,7 +298,7 @@ export default function OnboardingLoginScreen() {
                         setGender('pria');
                         if (errors.gender) setErrors((e) => ({ ...e, gender: '' }));
                       }}
-                      className={`flex-1 h-[60.08px] rounded-2xl items-center justify-center border ${gender === 'pria'
+                      className={`flex-1 h-[60.08px] rounded-2xl flex-row items-center justify-center gap-2 border ${gender === 'pria'
                         ? 'bg-[#E8F8F0] border-[#0E8549]/40'
                         : errors.gender
                           ? 'bg-white border-red-400'
@@ -254,10 +312,14 @@ export default function OnboardingLoginScreen() {
                         elevation: 4,
                       }}
                     >
+                      <SymbolView
+                        name={{ ios: 'figure.stand', android: 'male', web: 'male' }}
+                        tintColor={gender === 'pria' ? '#0E8549' : '#334155'}
+                        size={24}
+                      />
                       <Text
-                        className={`text-[16.57px] font-hanken-semibold ${
-                          gender === 'pria' ? 'text-[#0E8549]' : 'text-slate-700'
-                        }`}
+                        className={`text-[16.57px] font-hanken-semibold ${gender === 'pria' ? 'text-[#0E8549]' : 'text-slate-700'
+                          }`}
                       >
                         Pria
                       </Text>
@@ -269,7 +331,7 @@ export default function OnboardingLoginScreen() {
                         setGender('wanita');
                         if (errors.gender) setErrors((e) => ({ ...e, gender: '' }));
                       }}
-                      className={`flex-1 h-[60.08px] rounded-2xl items-center justify-center border ${gender === 'wanita'
+                      className={`flex-1 h-[60.08px] rounded-2xl flex-row items-center justify-center gap-2 border ${gender === 'wanita'
                         ? 'bg-[#E8F8F0] border-[#0E8549]/40'
                         : errors.gender
                           ? 'bg-white border-red-400'
@@ -283,10 +345,14 @@ export default function OnboardingLoginScreen() {
                         elevation: 4,
                       }}
                     >
+                      <SymbolView
+                        name={{ ios: 'figure.stand.dress', android: 'female', web: 'female' }}
+                        tintColor={gender === 'wanita' ? '#0E8549' : '#334155'}
+                        size={24}
+                      />
                       <Text
-                        className={`text-[16.57px] font-hanken-semibold ${
-                          gender === 'wanita' ? 'text-[#0E8549]' : 'text-slate-700'
-                        }`}
+                        className={`text-[16.57px] font-hanken-semibold ${gender === 'wanita' ? 'text-[#0E8549]' : 'text-slate-700'
+                          }`}
                       >
                         Wanita
                       </Text>
@@ -343,6 +409,19 @@ export default function OnboardingLoginScreen() {
             </View>
           </ScrollView>
         </KeyboardAvoidingView>
+
+        {/* ── Onboarding Spotlight Interactive Overlay ── */}
+        <SpotlightOverlay
+          visible={showSpotlight}
+          steps={ONBOARDING_SPOTLIGHT_STEPS}
+          currentStepIndex={currentStepIndex}
+          onNext={() =>
+            setCurrentStepIndex((prev) => Math.min(prev + 1, ONBOARDING_SPOTLIGHT_STEPS.length - 1))
+          }
+          onPrev={() => setCurrentStepIndex((prev) => Math.max(prev - 1, 0))}
+          onFinish={() => setShowSpotlight(false)}
+          onSkip={() => setShowSpotlight(false)}
+        />
       </View>
     </TouchableWithoutFeedback>
   );

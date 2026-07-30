@@ -8,31 +8,146 @@ import { Pressable, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { BottomNavigationBar } from '@/components/bottom-navigation-bar';
 
+import { SpotlightOverlay, type SpotlightStep } from '@/components/spotlight-overlay';
+
 type UserProfile = {
   name: string;
   age: string;
   gender: 'pria' | 'wanita';
 };
 
+const HOME_SPOTLIGHT_STEPS: SpotlightStep[] = [
+  {
+    id: 'step_header',
+    title: 'Profil & Dashboard Utama',
+    description:
+      'Selamat datang di SilentVoice! Bagian atas ini menampilkan salam profil pengguna dan notifikasi aplikasi Anda.',
+    icon: { ios: 'house.fill', android: 'home', web: 'home' },
+    tooltipPosition: 'bottom',
+    tooltipOffset: -70,
+    highlightArea: {
+      top: 5,
+      height: 50,
+      left: 16,
+      right: 16,
+      borderRadius: 24,
+    },
+  },
+  {
+    id: 'notif',
+    title: 'Notifikasi',
+    description:
+      'Tombol ini berfungsi untuk membuka fitur notifikasi, yang akan menampilkan informasi tentang update apa saja yang ada pada aplikasi.',
+    icon: { ios: 'bell.fill', android: 'notifications', web: 'notifications' },
+    tooltipPosition: 'bottom',
+    tooltipOffset: -70,
+    highlightArea: {
+      top: 5,
+      width: 49,
+      height: 49,
+      left: 250,
+      borderRadius: 25,
+    },
+  },
+  {
+    id: 'step_features',
+    title: 'Riwayat & Statistik Konversi',
+    description:
+      'Akses riwayat percakapan lipreading sebelumnya serta informasi ketepatan hasil konversi gerakan bibir Anda.',
+    icon: { ios: 'clock.arrow.circlepath', android: 'history', web: 'history' },
+    tooltipPosition: 'bottom',
+    tooltipOffset: -40,
+    highlightArea: {
+      top: 67,
+      height: 328,
+      left: 20,
+      right: 20,
+      borderRadius: 24,
+    },
+  },
+  {
+    id: 'step_audio',
+    title: 'Pengaturan Output Suara',
+    description:
+      'Atur kejelasan dan volume output ucapan suara hasil konversi lipreading agar terdengar jernih oleh lawan bicara.',
+    icon: { ios: 'speaker.wave.2.fill', android: 'volume_up', web: 'volume_up' },
+    tooltipPosition: 'top',
+    tooltipOffset: 20,
+    highlightArea: {
+      top: 410,
+      height: 169,
+      left: 20,
+      right: 20,
+      borderRadius: 24,
+    },
+  },
+  {
+    id: 'step_record_btn',
+    title: 'Tombol Rekam Utama Lipreading',
+    description:
+      'Tekan tombol mikrofon merah di tengah bawah ini untuk langsung membuka kamera dan mulai membaca gerak bibir.',
+    icon: { ios: 'mic.fill', android: 'mic', web: 'mic' },
+    tooltipPosition: 'top',
+    tooltipOffset: 20,
+    highlightArea: {
+      bottom: 75,
+      width: 90,
+      height: 90,
+      left: 165,
+      right: 125,
+      borderRadius: 50,
+    },
+  },
+  {
+    id: 'help_btn',
+    title: 'Tombol Bantuan',
+    description:
+      'Tekan ikon tanda tanya ini untuk membuka menu bantuan, yang berisi informasi tentang cara menggunakan aplikasi dan fitur-fitur yang tersedia.',
+    icon: { ios: 'questionmark.circle.fill', android: 'help', web: 'help' },
+    tooltipPosition: 'top',
+    highlightArea: {
+      bottom: 25,
+      width: 90,
+      height: 90,
+      left: 290,
+      right: 50,
+      borderRadius: 50,
+    },
+  },
+];
+
 export default function HomeScreen() {
   const router = useRouter();
   const [user, setUser] = useState<UserProfile | null>(null);
+  const [showSpotlight, setShowSpotlight] = useState(false);
+  const [currentStepIndex, setCurrentStepIndex] = useState(0);
 
   useEffect(() => {
-    const loadUser = async () => {
+    const loadUserAndTutorial = async () => {
       try {
         const raw = await AsyncStorage.getItem('user_profile');
         if (raw) setUser(JSON.parse(raw));
+
+        const hasSeenTutorial = await AsyncStorage.getItem('has_seen_tutorial');
+        if (hasSeenTutorial !== 'true') {
+          setShowSpotlight(true);
+        }
       } catch (e) {
-        console.error('Gagal membaca profil user:', e);
+        console.error('Gagal membaca profil user / status tutorial:', e);
       }
     };
-    loadUser();
+    loadUserAndTutorial();
   }, []);
 
   const handleDevLogout = async () => {
     try {
-      await AsyncStorage.multiRemove(['has_onboarded', 'user_profile']);
+      await AsyncStorage.multiRemove([
+        'has_onboarded',
+        'user_profile',
+        'has_seen_tutorial',
+        'has_seen_record_tutorial',
+        'has_seen_help_tutorial',
+      ]);
       router.replace('/onboarding');
     } catch (e) {
       console.error('Gagal logout:', e);
@@ -71,7 +186,7 @@ export default function HomeScreen() {
       <View style={{ flex: 1, zIndex: 10 }}>
         {/* ── Header - Top App Bar ── */}
         <View
-          className="w-full h-[65px] px-[20.3px] flex-row items-center justify-between bg-white"
+          className="w-full h-16.25 px-[20.3px] flex-row items-center justify-between bg-white"
           style={{
             shadowColor: '#000000',
             shadowOffset: { width: 0, height: 1.01 },
@@ -97,7 +212,7 @@ export default function HomeScreen() {
             <View className="w-[32.48px] h-[32.48px] rounded-full bg-[#E8F8F0] items-center justify-center overflow-hidden">
               <Image
                 source={require('@/assets/images/LogoSV.webp')}
-                className="w-[32.48px] h-[32.48px]"
+                style={{ width: 32.48, height: 32.48 }}
                 contentFit="contain"
                 alt="Silent Voice Logo"
               />
@@ -133,7 +248,7 @@ export default function HomeScreen() {
           {__DEV__ && (
             <Pressable
               onPress={handleDevLogout}
-              className="bg-red-500 active:bg-red-600 px-3 h-[40.64px] rounded-full flex-row items-center gap-1.5 ml-2 shadow-sm"
+              className="bg-red-600 px-3 h-[40.64px] rounded-full flex-row items-center gap-1.5 ml-2 shadow-sm"
               style={{
                 shadowColor: '#EF4444',
                 shadowOffset: { width: 0, height: 2 },
@@ -233,6 +348,25 @@ export default function HomeScreen() {
         {/* ── Bottom Navigation Bar ── */}
         <BottomNavigationBar activeTab="home" />
       </View>
+
+      {/* ── Spotlight Interactive Overlay Tutorial (Home Screen) ── */}
+      <SpotlightOverlay
+        visible={showSpotlight}
+        steps={HOME_SPOTLIGHT_STEPS}
+        currentStepIndex={currentStepIndex}
+        onNext={() =>
+          setCurrentStepIndex((prev) => Math.min(prev + 1, HOME_SPOTLIGHT_STEPS.length - 1))
+        }
+        onPrev={() => setCurrentStepIndex((prev) => Math.max(prev - 1, 0))}
+        onFinish={async () => {
+          setShowSpotlight(false);
+          await AsyncStorage.setItem('has_seen_tutorial', 'true');
+        }}
+        onSkip={async () => {
+          setShowSpotlight(false);
+          await AsyncStorage.setItem('has_seen_tutorial', 'true');
+        }}
+      />
     </SafeAreaView>
   );
 }

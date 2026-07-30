@@ -1,18 +1,120 @@
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
 import { CameraView, useCameraPermissions, CameraType } from 'expo-camera';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ImageBackground, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { SpotlightOverlay, type SpotlightStep } from '@/components/spotlight-overlay';
+
+const SPOTLIGHT_STEPS: SpotlightStep[] = [
+  {
+    id: 'step_viewfinder',
+    title: 'Posisikan Bibir & Wajah',
+    description:
+      'Arahkan kamera tepat ke area mulut pasien laringektomi. Bingkai hijau membantu Anda memastikan posisi bibir sejajar dengan sensor.',
+    icon: { ios: 'camera.viewfinder', android: 'center_focus_strong', web: 'center_focus_strong' },
+    tooltipPosition: 'bottom',
+    tooltipOffset: -40,
+    highlightArea: {
+      top: 80,
+      height: 530,
+      left: 24,
+      right: 24,
+      borderRadius: 32,
+    },
+  },
+  {
+    id: 'step_output',
+    title: 'Hasil Teks Konversi',
+    description:
+      'Teks kalimat hasil terjemahan gerak bibir akan muncul di kotak ini dan langsung dapat disuarakan untuk berkomunikasi dengan orang lain.',
+    icon: { ios: 'text.bubble.fill', android: 'subtitles', web: 'subtitles' },
+    tooltipPosition: 'top',
+    tooltipOffset: 20,
+    highlightArea: {
+      bottom: 115,
+      height: 150,
+      left: 24,
+      right: 24,
+      borderRadius: 24,
+    },
+  },
+  {
+    id: 'step_torch',
+    title: 'Bantuan Lampu Senter',
+    description:
+      'Jika ruangan kurang redup atau di malam hari, aktifkan lampu senter ini agar pergerakan bibir terdeteksi dengan tajam dan akurat.',
+    icon: { ios: 'flashlight.on.fill', android: 'flashlight_on', web: 'flashlight_on' },
+    tooltipPosition: 'top',
+    highlightArea: {
+      bottom: 30,
+      left: 95,
+      width: 64,
+      height: 64,
+      borderRadius: 32,
+    },
+  },
+  {
+    id: 'step_record',
+    title: 'Tombol Rekam & Terjemahkan',
+    description:
+      'Tekan tombol rekam utama di tengah untuk memulai membaca gerak bibir secara otomatis. Tekan kembali jika sudah selesai berbicara.',
+    icon: { ios: 'mic.fill', android: 'mic', web: 'mic' },
+    tooltipPosition: 'top',
+    highlightArea: {
+      bottom: 20,
+      left: 170,
+      width: 80,
+      height: 80,
+      borderRadius: 40,
+    },
+  },
+  {
+    id: 'step_reverse',
+    title: 'Ganti Mode Kamera',
+    description:
+      'Tekan tombol ini untuk mengganti tampilan kamera dari depan ke belakang, atau sebaliknya, sesuai kebutuhan Anda.',
+    icon: { ios: 'arrow.triangle.2.circlepath', android: 'arrow_forward_ios', web: 'arrow_forward_ios' },
+    tooltipPosition: 'top',
+    highlightArea: {
+      bottom: 30,
+      left: 260,
+      width: 64,
+      height: 64,
+      borderRadius: 32,
+    },
+  },
+];
 
 export default function RecordScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams<{ startTutorial?: string }>();
   const insets = useSafeAreaInsets();
 
   const [permission, requestPermission] = useCameraPermissions();
   const [facing, setFacing] = useState<CameraType>('back');
   const [enableTorch, setEnableTorch] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
+
+  // Tutorial Spotlight states
+  const [showSpotlight, setShowSpotlight] = useState(false);
+  const [currentStepIndex, setCurrentStepIndex] = useState(0);
+
+  useEffect(() => {
+    const checkTutorial = async () => {
+      try {
+        const hasSeenRecordTutorial = await AsyncStorage.getItem('has_seen_record_tutorial');
+        if (params.startTutorial === 'true' || hasSeenRecordTutorial !== 'true') {
+          setShowSpotlight(true);
+          setCurrentStepIndex(0);
+        }
+      } catch (e) {
+        console.error('Gagal mengecek status tutorial rekam:', e);
+      }
+    };
+    checkTutorial();
+  }, [params.startTutorial]);
 
   const isTorchSupported = facing === 'back';
   const isTorchDisabled = !permission?.granted || !isTorchSupported;
@@ -132,7 +234,7 @@ export default function RecordScreen() {
           {permission?.granted && (
             <View
               pointerEvents="none"
-              className="absolute bottom-5 bg-black/40 backdrop-blur-md px-4 py-2 rounded-full border border-white/20 z-10"
+              className="absolute bottom-5 bg-black/60 px-4 py-2 rounded-full border border-white/20 z-10"
             >
               <Text className="text-white text-xs font-hanken-medium tracking-wide">
                 Mengarahkan ke subjek
@@ -283,6 +385,23 @@ export default function RecordScreen() {
           </Pressable>
         </View>
       </View>
+
+      {/* ── Interactive Spotlight Overlay Guide ── */}
+      <SpotlightOverlay
+        visible={showSpotlight}
+        steps={SPOTLIGHT_STEPS}
+        currentStepIndex={currentStepIndex}
+        onNext={() => setCurrentStepIndex((prev) => Math.min(prev + 1, SPOTLIGHT_STEPS.length - 1))}
+        onPrev={() => setCurrentStepIndex((prev) => Math.max(prev - 1, 0))}
+        onFinish={async () => {
+          setShowSpotlight(false);
+          await AsyncStorage.setItem('has_seen_record_tutorial', 'true');
+        }}
+        onSkip={async () => {
+          setShowSpotlight(false);
+          await AsyncStorage.setItem('has_seen_record_tutorial', 'true');
+        }}
+      />
     </ImageBackground>
   );
 }

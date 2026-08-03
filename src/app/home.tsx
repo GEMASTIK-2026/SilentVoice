@@ -3,11 +3,10 @@ import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { SymbolView } from 'expo-symbols';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { BottomNavigationBar } from '@/components/bottom-navigation-bar';
-
 import { SpotlightOverlay, type SpotlightStep } from '@/components/spotlight-overlay';
 
 type UserProfile = {
@@ -16,7 +15,9 @@ type UserProfile = {
   gender: 'pria' | 'wanita';
 };
 
-const HOME_SPOTLIGHT_STEPS: SpotlightStep[] = [
+// Template steps — hanya berisi metadata (title, desc, icon, tooltipPosition).
+// highlightArea akan diisi secara dinamis berdasarkan posisi aktual elemen di layar.
+const HOME_STEP_TEMPLATES: Omit<SpotlightStep, 'highlightArea'>[] = [
   {
     id: 'step_header',
     title: 'Profil & Dashboard Utama',
@@ -25,13 +26,6 @@ const HOME_SPOTLIGHT_STEPS: SpotlightStep[] = [
     icon: { ios: 'house.fill', android: 'home', web: 'home' },
     tooltipPosition: 'bottom',
     tooltipOffset: -70,
-    highlightArea: {
-      top: 5,
-      height: 50,
-      left: 16,
-      right: 16,
-      borderRadius: 24,
-    },
   },
   {
     id: 'notif',
@@ -41,13 +35,6 @@ const HOME_SPOTLIGHT_STEPS: SpotlightStep[] = [
     icon: { ios: 'bell.fill', android: 'notifications', web: 'notifications' },
     tooltipPosition: 'bottom',
     tooltipOffset: -70,
-    highlightArea: {
-      top: 5,
-      width: 49,
-      height: 49,
-      left: 250,
-      borderRadius: 25,
-    },
   },
   {
     id: 'step_features',
@@ -57,13 +44,6 @@ const HOME_SPOTLIGHT_STEPS: SpotlightStep[] = [
     icon: { ios: 'clock.arrow.circlepath', android: 'history', web: 'history' },
     tooltipPosition: 'bottom',
     tooltipOffset: -40,
-    highlightArea: {
-      top: 67,
-      height: 328,
-      left: 20,
-      right: 20,
-      borderRadius: 24,
-    },
   },
   {
     id: 'step_audio',
@@ -73,13 +53,6 @@ const HOME_SPOTLIGHT_STEPS: SpotlightStep[] = [
     icon: { ios: 'speaker.wave.2.fill', android: 'volume_up', web: 'volume_up' },
     tooltipPosition: 'top',
     tooltipOffset: 20,
-    highlightArea: {
-      top: 410,
-      height: 169,
-      left: 20,
-      right: 20,
-      borderRadius: 24,
-    },
   },
   {
     id: 'step_record_btn',
@@ -89,14 +62,6 @@ const HOME_SPOTLIGHT_STEPS: SpotlightStep[] = [
     icon: { ios: 'mic.fill', android: 'mic', web: 'mic' },
     tooltipPosition: 'top',
     tooltipOffset: 20,
-    highlightArea: {
-      bottom: 75,
-      width: 90,
-      height: 90,
-      left: 165,
-      right: 125,
-      borderRadius: 50,
-    },
   },
   {
     id: 'help_btn',
@@ -105,22 +70,27 @@ const HOME_SPOTLIGHT_STEPS: SpotlightStep[] = [
       'Tekan ikon tanda tanya ini untuk membuka menu bantuan, yang berisi informasi tentang cara menggunakan aplikasi dan fitur-fitur yang tersedia.',
     icon: { ios: 'questionmark.circle.fill', android: 'help', web: 'help' },
     tooltipPosition: 'top',
-    highlightArea: {
-      bottom: 25,
-      width: 90,
-      height: 90,
-      left: 290,
-      right: 50,
-      borderRadius: 50,
-    },
   },
 ];
+
+/** Padding sisi kiri/kanan yang digunakan sebagai default highlight area */
+const H_PAD = 20;
 
 export default function HomeScreen() {
   const router = useRouter();
   const [user, setUser] = useState<UserProfile | null>(null);
   const [showSpotlight, setShowSpotlight] = useState(false);
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
+  const [dynamicSteps, setDynamicSteps] = useState<SpotlightStep[]>([]);
+
+  // Refs untuk setiap elemen yang akan di-highlight
+  const headerRef = useRef<View>(null);
+  const notifRef = useRef<View>(null);
+  const topCardsRef = useRef<View>(null);
+  const audioCardRef = useRef<View>(null);
+
+  // Satu store untuk semua pengukuran — key string ke koordinat absolut
+  const measurementsRef = useRef<Record<string, { x: number; y: number; width: number; height: number }>>({});
 
   useEffect(() => {
     const loadUserAndTutorial = async () => {
@@ -139,6 +109,68 @@ export default function HomeScreen() {
     loadUserAndTutorial();
   }, []);
 
+  /**
+   * Membaca semua pengukuran dari measurementsRef dan membangun dynamicSteps.
+   * Dipanggil setiap kali satu elemen selesai diukur.
+   */
+  const buildDynamicSteps = useCallback(() => {
+    const m = measurementsRef.current;
+    const steps: SpotlightStep[] = HOME_STEP_TEMPLATES.map((template) => {
+      let highlightArea: SpotlightStep['highlightArea'];
+
+      switch (template.id) {
+        case 'step_header': {
+          const v = m.header;
+          highlightArea = v ? { top: v.y, left: H_PAD, right: H_PAD, height: v.height, borderRadius: 16 } : undefined;
+          break;
+        }
+        case 'notif': {
+          const v = m.notif;
+          highlightArea = v ? { top: v.y - 4, left: v.x - 4, width: v.width + 8, height: v.height + 8, borderRadius: 28 } : undefined;
+          break;
+        }
+        case 'step_features': {
+          const v = m.topCards;
+          highlightArea = v ? { top: v.y, left: H_PAD, right: H_PAD, height: v.height, borderRadius: 24 } : undefined;
+          break;
+        }
+        case 'step_audio': {
+          const v = m.audioCard;
+          highlightArea = v ? { top: v.y, left: H_PAD, right: H_PAD, height: v.height, borderRadius: 24 } : undefined;
+          break;
+        }
+        case 'step_record_btn': {
+          const v = m.recordBtn;
+          highlightArea = v ? { top: v.y - 4, left: v.x - 4, width: v.width + 8, height: v.height + 8, borderRadius: (v.width / 2) + 4 } : undefined;
+          break;
+        }
+        case 'help_btn': {
+          const v = m.helpBtn;
+          highlightArea = v ? { top: v.y - 4, left: v.x - 4, width: v.width + 8, height: v.height + 8, borderRadius: (v.width / 2) + 4 } : undefined;
+          break;
+        }
+      }
+
+      return { ...template, highlightArea };
+    });
+    setDynamicSteps(steps);
+  }, []);
+
+  /**
+   * Mengukur satu elemen dengan requestAnimationFrame untuk timing yang akurat,
+   * lalu menyimpan hasilnya dan rebuild steps.
+   */
+  const measureEl = useCallback((key: string, ref: React.RefObject<View | null>) => {
+    requestAnimationFrame(() => {
+      ref.current?.measureInWindow((x, y, width, height) => {
+        if (width > 0 && height > 0) {
+          measurementsRef.current[key] = { x, y, width, height };
+          buildDynamicSteps();
+        }
+      });
+    });
+  }, [buildDynamicSteps]);
+
   const handleDevLogout = async () => {
     try {
       await AsyncStorage.multiRemove([
@@ -155,6 +187,9 @@ export default function HomeScreen() {
   };
 
   const greeting = user?.name ? user.name : 'Pengguna';
+
+  // Steps yang aktif dipakai — gunakan dynamicSteps jika sudah siap, fallback ke template tanpa highlightArea
+  const activeSteps = dynamicSteps.length > 0 ? dynamicSteps : HOME_STEP_TEMPLATES as SpotlightStep[];
 
   return (
     <SafeAreaView edges={['top', 'left', 'right']} style={{ flex: 1, backgroundColor: '#FAFCFB' }}>
@@ -186,6 +221,8 @@ export default function HomeScreen() {
       <View style={{ flex: 1, zIndex: 10 }}>
         {/* ── Header - Top App Bar ── */}
         <View
+          ref={headerRef}
+          onLayout={() => measureEl('header', headerRef)}
           className="w-full h-16.25 px-[20.3px] flex-row items-center justify-between bg-white"
           style={{
             shadowColor: '#000000',
@@ -228,6 +265,8 @@ export default function HomeScreen() {
 
           {/* Button (Notification Bell) */}
           <Pressable
+            ref={notifRef}
+            onLayout={() => measureEl('notif', notifRef)}
             className="w-[40.64px] h-[40.64px] rounded-full bg-white border border-slate-100 items-center justify-center"
             style={{
               shadowColor: '#000000',
@@ -270,7 +309,11 @@ export default function HomeScreen() {
         {/* ── Feature Cards (Takes up remaining vertical space) ── */}
         <View style={{ flex: 1 }} className="px-6 pt-4 gap-4">
           {/* Top row: 2 cards */}
-          <View className="flex-row gap-4 justify-center">
+          <View
+            ref={topCardsRef}
+            onLayout={() => measureEl('topCards', topCardsRef)}
+            className="flex-row gap-4 justify-center"
+          >
             {/* Card 1: History */}
             <Pressable
               className="bg-white w-[48%] h-93 rounded-3xl py-25 px-5 flex justify-center border border-slate-100/80"
@@ -322,6 +365,8 @@ export default function HomeScreen() {
 
           {/* Card 3: Voice Output Settings */}
           <Pressable
+            ref={audioCardRef}
+            onLayout={() => measureEl('audioCard', audioCardRef)}
             className="bg-white w-full rounded-3xl p-5 items-center justify-center border border-slate-100/80"
             style={{
               minHeight: 130,
@@ -346,16 +391,26 @@ export default function HomeScreen() {
         </View>
 
         {/* ── Bottom Navigation Bar ── */}
-        <BottomNavigationBar activeTab="home" />
+        <BottomNavigationBar
+          activeTab="home"
+          onRecordLayout={(m) => {
+            measurementsRef.current['recordBtn'] = m;
+            buildDynamicSteps();
+          }}
+          onHelpLayout={(m) => {
+            measurementsRef.current['helpBtn'] = m;
+            buildDynamicSteps();
+          }}
+        />
       </View>
 
       {/* ── Spotlight Interactive Overlay Tutorial (Home Screen) ── */}
       <SpotlightOverlay
         visible={showSpotlight}
-        steps={HOME_SPOTLIGHT_STEPS}
+        steps={activeSteps}
         currentStepIndex={currentStepIndex}
         onNext={() =>
-          setCurrentStepIndex((prev) => Math.min(prev + 1, HOME_SPOTLIGHT_STEPS.length - 1))
+          setCurrentStepIndex((prev) => Math.min(prev + 1, activeSteps.length - 1))
         }
         onPrev={() => setCurrentStepIndex((prev) => Math.max(prev - 1, 0))}
         onFinish={async () => {

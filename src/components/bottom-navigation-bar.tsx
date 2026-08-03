@@ -1,7 +1,9 @@
 import { useRouter } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
+import { useRef } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { type ElementMeasurement } from '@/hooks/useElementMeasure';
 
 export type TabType = 'home' | 'record' | 'help';
 
@@ -9,15 +11,23 @@ interface BottomNavigationBarProps {
   activeTab?: TabType;
   onTabPress?: (tab: TabType) => void;
   onRecordPress?: () => void;
+  /** Callback dengan ukuran absolut tombol rekam (mic merah) di layar */
+  onRecordLayout?: (measurement: ElementMeasurement) => void;
+  /** Callback dengan ukuran absolut tombol help di layar */
+  onHelpLayout?: (measurement: ElementMeasurement) => void;
 }
 
 export function BottomNavigationBar({
   activeTab = 'home',
   onTabPress,
   onRecordPress,
+  onRecordLayout,
+  onHelpLayout,
 }: BottomNavigationBarProps) {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const recordBtnRef = useRef<View>(null);
+  const helpBtnRef = useRef<View>(null);
 
   const handleTabClick = (tab: TabType) => {
     if (onTabPress) {
@@ -99,7 +109,17 @@ export function BottomNavigationBar({
           >
             {/* Button - Record */}
             <Pressable
+              ref={recordBtnRef}
               onPress={handleRecordClick}
+              onLayout={() => {
+                requestAnimationFrame(() => {
+                  recordBtnRef.current?.measureInWindow((x, y, width, height) => {
+                    if (onRecordLayout && width > 0 && height > 0) {
+                      onRecordLayout({ x, y, width, height });
+                    }
+                  });
+                });
+              }}
               className="w-full h-full rounded-full items-center justify-center bg-[#D92D20] active:bg-[#B42318]"
               style={{
                 shadowColor: '#D92D20',
@@ -124,7 +144,17 @@ export function BottomNavigationBar({
 
         {/* ── Link: Help ── */}
         <Pressable
+          ref={helpBtnRef}
           onPress={() => handleTabClick('help')}
+          onLayout={() => {
+            requestAnimationFrame(() => {
+              helpBtnRef.current?.measureInWindow((x, y, width, height) => {
+                if (onHelpLayout && width > 0 && height > 0) {
+                  onHelpLayout({ x, y, width, height });
+                }
+              });
+            });
+          }}
           className={`flex-col items-center gap-2 px-4 py-2 rounded-full w-[69.51px] h-[57.6px] ${activeTab === 'help'
               ? 'bg-white shadow-sm border border-slate-100/80'
               : 'bg-transparent'

@@ -4,7 +4,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { SymbolView } from 'expo-symbols';
-import { useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import {
   Keyboard,
   KeyboardAvoidingView,
@@ -27,7 +27,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { SpotlightOverlay, type SpotlightStep } from '@/components/spotlight-overlay';
 
-const ONBOARDING_SPOTLIGHT_STEPS: SpotlightStep[] = [
+// Template steps — hanya metadata. highlightArea diisi dinamis dari measureInWindow.
+const ONBOARDING_STEP_TEMPLATES: Omit<SpotlightStep, 'highlightArea'>[] = [
   {
     tooltipOffset: -45,
     id: 'welcome',
@@ -36,14 +37,6 @@ const ONBOARDING_SPOTLIGHT_STEPS: SpotlightStep[] = [
       'Aplikasi kecerdasan buatan pembaca gerak bibir (Lipreading) yang dirancang khusus untuk membantu komunikasi pasien laringektomi.',
     icon: { ios: 'hand.wave.fill', android: 'waving_hand', web: 'waving_hand' },
     tooltipPosition: 'bottom',
-    highlightArea: {
-      top: 220,
-      width:365,
-      height: 155,
-      left: 24,
-      right: 24,
-      borderRadius: 28,
-    },
   },
   {
     id: 'profile_form',
@@ -53,13 +46,6 @@ const ONBOARDING_SPOTLIGHT_STEPS: SpotlightStep[] = [
     icon: { ios: 'text.cursor', android: 'edit_note', web: 'edit_note' },
     tooltipPosition: 'top',
     tooltipOffset: 20,
-    highlightArea: {
-      top: 445,
-      height: 220,
-      left: 20,
-      right: 20,
-      borderRadius: 24,
-    },
   },
   {
     id: 'submit_button',
@@ -69,13 +55,6 @@ const ONBOARDING_SPOTLIGHT_STEPS: SpotlightStep[] = [
     icon: { ios: 'arrow.right.circle.fill', android: 'arrow_forward', web: 'arrow_forward' },
     tooltipPosition: 'top',
     tooltipOffset: 20,
-    highlightArea: {
-      bottom: 144,
-      height: 63,
-      left: 24,
-      right: 24,
-      borderRadius: 16,
-    },
   },
 ];
 
@@ -90,6 +69,55 @@ export default function OnboardingLoginScreen() {
   // Spotlight tutorial (otomatis muncul pertama kali)
   const [showSpotlight, setShowSpotlight] = useState(true);
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
+  const [dynamicSteps, setDynamicSteps] = useState<SpotlightStep[]>([]);
+
+  // Refs untuk elemen yang di-highlight
+  const mainCardRef = useRef<View>(null);
+  const formAreaRef = useRef<View>(null);
+  const submitBtnRef = useRef<View>(null);
+  const measurementsRef = useRef<Record<string, { x: number; y: number; width: number; height: number }>>({});
+
+  /** Membaca semua pengukuran dan membangun dynamicSteps. */
+  const buildDynamicSteps = useCallback(() => {
+    const m = measurementsRef.current;
+    const PAD = 8;
+    const steps: SpotlightStep[] = ONBOARDING_STEP_TEMPLATES.map((template) => {
+      let highlightArea: SpotlightStep['highlightArea'];
+      switch (template.id) {
+        case 'welcome': {
+          const v = m.mainCard;
+          highlightArea = v ? { top: v.y - PAD, left: v.x - PAD, width: v.width + PAD * 2, height: v.height + PAD * 2, borderRadius: 32 } : undefined;
+          break;
+        }
+        case 'profile_form': {
+          const v = m.formArea;
+          highlightArea = v ? { top: v.y - PAD, left: v.x - PAD, width: v.width + PAD * 2, height: v.height + PAD * 2, borderRadius: 24 } : undefined;
+          break;
+        }
+        case 'submit_button': {
+          const v = m.submitBtn;
+          highlightArea = v ? { top: v.y - PAD, left: v.x - PAD, width: v.width + PAD * 2, height: v.height + PAD * 2, borderRadius: 12 } : undefined;
+          break;
+        }
+      }
+      return { ...template, highlightArea };
+    });
+    setDynamicSteps(steps);
+  }, []);
+
+  /** Mengukur satu elemen dengan rAF lalu rebuild steps. */
+  const measureEl = useCallback((key: string, ref: React.RefObject<View | null>) => {
+    requestAnimationFrame(() => {
+      ref.current?.measureInWindow((x, y, width, height) => {
+        if (width > 0 && height > 0) {
+          measurementsRef.current[key] = { x, y, width, height };
+          buildDynamicSteps();
+        }
+      });
+    });
+  }, [buildDynamicSteps]);
+
+  const activeSteps = dynamicSteps.length > 0 ? dynamicSteps : ONBOARDING_STEP_TEMPLATES as SpotlightStep[];
 
   // Validation error states
   const [errors, setErrors] = useState({
@@ -199,6 +227,8 @@ export default function OnboardingLoginScreen() {
           >
             {/* Soft Floating Glassmorphic Card Container */}
             <View
+              ref={mainCardRef}
+              onLayout={() => measureEl('mainCard', mainCardRef)}
               className="w-full max-w-full border border-white/80 rounded-3xl p-6"
               style={{
                 backgroundColor: 'rgba(255, 255, 255, 0.88)',
@@ -220,7 +250,11 @@ export default function OnboardingLoginScreen() {
               </View>
 
               {/* Form Input Fields */}
-              <View className="gap-4">
+              <View
+                ref={formAreaRef}
+                onLayout={() => measureEl('formArea', formAreaRef)}
+                className="gap-4"
+              >
                 {/* Input 1: Name */}
                 <View>
                   <View
@@ -367,6 +401,8 @@ export default function OnboardingLoginScreen() {
 
                 {/* Submit Button ("Selanjutnya →") */}
                 <Pressable
+                  ref={submitBtnRef}
+                  onLayout={() => measureEl('submitBtn', submitBtnRef)}
                   onPress={handleLogin}
                   onPressIn={handlePressIn}
                   onPressOut={handlePressOut}
@@ -413,10 +449,10 @@ export default function OnboardingLoginScreen() {
         {/* ── Onboarding Spotlight Interactive Overlay ── */}
         <SpotlightOverlay
           visible={showSpotlight}
-          steps={ONBOARDING_SPOTLIGHT_STEPS}
+          steps={activeSteps}
           currentStepIndex={currentStepIndex}
           onNext={() =>
-            setCurrentStepIndex((prev) => Math.min(prev + 1, ONBOARDING_SPOTLIGHT_STEPS.length - 1))
+            setCurrentStepIndex((prev) => Math.min(prev + 1, activeSteps.length - 1))
           }
           onPrev={() => setCurrentStepIndex((prev) => Math.max(prev - 1, 0))}
           onFinish={() => setShowSpotlight(false)}

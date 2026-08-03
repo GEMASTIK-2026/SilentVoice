@@ -1,13 +1,15 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
 import { CameraView, useCameraPermissions, CameraType } from 'expo-camera';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { ImageBackground, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SpotlightOverlay, type SpotlightStep } from '@/components/spotlight-overlay';
 
-const SPOTLIGHT_STEPS: SpotlightStep[] = [
+// Template steps — hanya berisi metadata (title, desc, icon, tooltipPosition).
+// highlightArea akan diisi secara dinamis dari hasil measureInWindow.
+const RECORD_STEP_TEMPLATES: Omit<SpotlightStep, 'highlightArea'>[] = [
   {
     id: 'step_viewfinder',
     title: 'Posisikan Bibir & Wajah',
@@ -16,13 +18,6 @@ const SPOTLIGHT_STEPS: SpotlightStep[] = [
     icon: { ios: 'camera.viewfinder', android: 'center_focus_strong', web: 'center_focus_strong' },
     tooltipPosition: 'bottom',
     tooltipOffset: -40,
-    highlightArea: {
-      top: 80,
-      height: 530,
-      left: 24,
-      right: 24,
-      borderRadius: 32,
-    },
   },
   {
     id: 'step_output',
@@ -32,13 +27,6 @@ const SPOTLIGHT_STEPS: SpotlightStep[] = [
     icon: { ios: 'text.bubble.fill', android: 'subtitles', web: 'subtitles' },
     tooltipPosition: 'top',
     tooltipOffset: 20,
-    highlightArea: {
-      bottom: 115,
-      height: 150,
-      left: 24,
-      right: 24,
-      borderRadius: 24,
-    },
   },
   {
     id: 'step_torch',
@@ -47,13 +35,6 @@ const SPOTLIGHT_STEPS: SpotlightStep[] = [
       'Jika ruangan kurang redup atau di malam hari, aktifkan lampu senter ini agar pergerakan bibir terdeteksi dengan tajam dan akurat.',
     icon: { ios: 'flashlight.on.fill', android: 'flashlight_on', web: 'flashlight_on' },
     tooltipPosition: 'top',
-    highlightArea: {
-      bottom: 30,
-      left: 95,
-      width: 64,
-      height: 64,
-      borderRadius: 32,
-    },
   },
   {
     id: 'step_record',
@@ -62,13 +43,6 @@ const SPOTLIGHT_STEPS: SpotlightStep[] = [
       'Tekan tombol rekam utama di tengah untuk memulai membaca gerak bibir secara otomatis. Tekan kembali jika sudah selesai berbicara.',
     icon: { ios: 'mic.fill', android: 'mic', web: 'mic' },
     tooltipPosition: 'top',
-    highlightArea: {
-      bottom: 20,
-      left: 170,
-      width: 80,
-      height: 80,
-      borderRadius: 40,
-    },
   },
   {
     id: 'step_reverse',
@@ -77,13 +51,6 @@ const SPOTLIGHT_STEPS: SpotlightStep[] = [
       'Tekan tombol ini untuk mengganti tampilan kamera dari depan ke belakang, atau sebaliknya, sesuai kebutuhan Anda.',
     icon: { ios: 'arrow.triangle.2.circlepath', android: 'arrow_forward_ios', web: 'arrow_forward_ios' },
     tooltipPosition: 'top',
-    highlightArea: {
-      bottom: 30,
-      left: 260,
-      width: 64,
-      height: 64,
-      borderRadius: 32,
-    },
   },
 ];
 
@@ -100,6 +67,14 @@ export default function RecordScreen() {
   // Tutorial Spotlight states
   const [showSpotlight, setShowSpotlight] = useState(false);
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
+  const [dynamicSteps, setDynamicSteps] = useState<SpotlightStep[]>([]);
+
+  // Refs untuk elemen yang akan di-highlight oleh spotlight
+  const viewfinderRef = useRef<View>(null);
+  const outputCardRef = useRef<View>(null);
+  const torchRef = useRef<View>(null);
+  const recordRef = useRef<View>(null);
+  const flipRef = useRef<View>(null);
 
   useEffect(() => {
     const checkTutorial = async () => {
@@ -116,8 +91,72 @@ export default function RecordScreen() {
     checkTutorial();
   }, [params.startTutorial]);
 
+  // Satu store untuk semua pengukuran
+  const measurementsRef = useRef<Record<string, { x: number; y: number; width: number; height: number }>>({});
+
+  /**
+   * Membaca semua pengukuran dan membangun dynamicSteps.
+   * Dipanggil setiap kali satu elemen selesai diukur.
+   */
+  const buildDynamicSteps = useCallback(() => {
+    const m = measurementsRef.current;
+    const steps: SpotlightStep[] = RECORD_STEP_TEMPLATES.map((template) => {
+      let highlightArea: SpotlightStep['highlightArea'];
+      const PAD = 8;
+
+      switch (template.id) {
+        case 'step_viewfinder': {
+          const v = m.viewfinder;
+          highlightArea = v ? { top: v.y - PAD, left: v.x - PAD, width: v.width + PAD * 2, height: v.height + PAD * 2, borderRadius: 36 } : undefined;
+          break;
+        }
+        case 'step_output': {
+          const v = m.outputCard;
+          highlightArea = v ? { top: v.y - PAD, left: v.x - PAD, width: v.width + PAD * 2, height: v.height + PAD * 2, borderRadius: 28 } : undefined;
+          break;
+        }
+        case 'step_torch': {
+          const v = m.torch;
+          highlightArea = v ? { top: v.y - PAD, left: v.x - PAD, width: v.width + PAD * 2, height: v.height + PAD * 2, borderRadius: (v.width / 2) + PAD } : undefined;
+          break;
+        }
+        case 'step_record': {
+          const v = m.record;
+          highlightArea = v ? { top: v.y - PAD, left: v.x - PAD, width: v.width + PAD * 2, height: v.height + PAD * 2, borderRadius: (v.width / 2) + PAD } : undefined;
+          break;
+        }
+        case 'step_reverse': {
+          const v = m.flip;
+          highlightArea = v ? { top: v.y - PAD, left: v.x - PAD, width: v.width + PAD * 2, height: v.height + PAD * 2, borderRadius: (v.width / 2) + PAD } : undefined;
+          break;
+        }
+      }
+
+      return { ...template, highlightArea };
+    });
+    setDynamicSteps(steps);
+  }, []);
+
+  /**
+   * Mengukur satu elemen dengan requestAnimationFrame untuk timing yang akurat,
+   * lalu menyimpan hasilnya dan rebuild steps.
+   */
+  const measureEl = useCallback((key: string, ref: React.RefObject<View | null>) => {
+    requestAnimationFrame(() => {
+      ref.current?.measureInWindow((x, y, width, height) => {
+        if (width > 0 && height > 0) {
+          measurementsRef.current[key] = { x, y, width, height };
+          buildDynamicSteps();
+        }
+      });
+    });
+  }, [buildDynamicSteps]);
+
   const isTorchSupported = facing === 'back';
   const isTorchDisabled = !permission?.granted || !isTorchSupported;
+
+  // Steps yang aktif: gunakan dynamicSteps jika sudah siap, fallback ke template
+  const activeSteps = dynamicSteps.length > 0 ? dynamicSteps : RECORD_STEP_TEMPLATES as SpotlightStep[];
 
   const toggleCameraFacing = () => {
     setFacing((current) => {
@@ -174,7 +213,11 @@ export default function RecordScreen() {
         </View>
 
         {/* ── Camera Viewfinder Card ── */}
-        <View className="flex-1 mt-2 relative justify-center items-center bg-black/10 rounded-[32px] border border-white/70 overflow-hidden shadow-sm">
+        <View
+          ref={viewfinderRef}
+          onLayout={() => measureEl('viewfinder', viewfinderRef)}
+          className="flex-1 mt-2 relative justify-center items-center bg-black/10 rounded-[32px] border border-white/70 overflow-hidden shadow-sm"
+        >
           {/* Live Camera View or Permission Prompt */}
           {permission?.granted ? (
             <CameraView
@@ -245,6 +288,8 @@ export default function RecordScreen() {
 
         {/* ── Output Konversi Card ── */}
         <View
+          ref={outputCardRef}
+          onLayout={() => measureEl('outputCard', outputCardRef)}
           className="bg-white rounded-3xl p-6 shadow-sm mt-4 min-h-[145px] justify-start border border-slate-100/60"
           style={{
             shadowColor: '#000',
@@ -270,7 +315,9 @@ export default function RecordScreen() {
         <View className="flex-row items-center justify-center gap-6 mt-6 mb-2">
           {/* Flashlight / Torch Button */}
           <Pressable
+            ref={torchRef}
             onPress={toggleTorch}
+            onLayout={() => measureEl('torch', torchRef)}
             className="items-center justify-center active:opacity-80"
             disabled={isTorchDisabled}
             style={{ opacity: isTorchDisabled ? 0.35 : 1 }}
@@ -319,7 +366,12 @@ export default function RecordScreen() {
           </Pressable>
 
           {/* Mic / Record Button (Center, Larger) */}
-          <Pressable onPress={toggleRecording} className="items-center justify-center active:opacity-80">
+          <Pressable
+            ref={recordRef}
+            onPress={toggleRecording}
+            onLayout={() => measureEl('record', recordRef)}
+            className="items-center justify-center active:opacity-80"
+          >
             <View
               className="w-20 h-20 rounded-full p-1.5 items-center justify-center"
               style={{
@@ -351,7 +403,9 @@ export default function RecordScreen() {
 
           {/* Flip Camera Button */}
           <Pressable
+            ref={flipRef}
             onPress={toggleCameraFacing}
+            onLayout={() => measureEl('flip', flipRef)}
             className="items-center justify-center active:opacity-80"
             disabled={!permission?.granted}
           >
@@ -389,9 +443,9 @@ export default function RecordScreen() {
       {/* ── Interactive Spotlight Overlay Guide ── */}
       <SpotlightOverlay
         visible={showSpotlight}
-        steps={SPOTLIGHT_STEPS}
+        steps={activeSteps}
         currentStepIndex={currentStepIndex}
-        onNext={() => setCurrentStepIndex((prev) => Math.min(prev + 1, SPOTLIGHT_STEPS.length - 1))}
+        onNext={() => setCurrentStepIndex((prev) => Math.min(prev + 1, activeSteps.length - 1))}
         onPrev={() => setCurrentStepIndex((prev) => Math.max(prev - 1, 0))}
         onFinish={async () => {
           setShowSpotlight(false);

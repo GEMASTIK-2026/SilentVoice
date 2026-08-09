@@ -17,7 +17,8 @@
         "backgroundImage": "./src/assets/images/LogoSV.webp",
         "monochromeImage": "./src/assets/images/LogoSV.webp"
       },
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "softwareKeyboardLayoutMode": "resize"
     },
     "web": {
       "output": "static",

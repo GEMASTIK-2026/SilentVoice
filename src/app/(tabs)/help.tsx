@@ -6,9 +6,7 @@ import { SymbolView, type SFSymbol, type AndroidSymbol } from 'expo-symbols';
 import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { BottomNavigationBar } from '@/components/bottom-navigation-bar';
 
-import { TutorialModal } from '@/components/tutorial-modal';
 
 type HelpSubTab = 'faq' | 'kamus' | 'history';
 
@@ -34,22 +32,49 @@ const FAQ_ITEMS: MenuItem[] = [
   },
   {
     id: '1',
-    title: 'How to use gestures?',
-    subtitle: 'Learn the basic signs',
+    title: 'Cara Penggunaan',
+    subtitle: 'Pelajari Dasar Penggunaan Silent-Voice',
     icon: { ios: 'questionmark.circle', android: 'help_outline', web: 'help_outline' },
   },
   {
     id: '2',
-    title: 'Voice calibration',
-    subtitle: 'Improve recognition accuracy',
+    title: 'Kalibrasi Kata',
+    subtitle: 'Tingkatkan Akurasi kata',
     icon: { ios: 'mic', android: 'mic', web: 'mic' },
   },
   {
     id: '3',
-    title: 'Account settings',
-    subtitle: 'Manage your profile',
+    title: 'Pengaturan Akun',
+    subtitle: 'Kelola Profil Anda',
     icon: { ios: 'person.circle', android: 'account_circle', web: 'account_circle' },
   },
+  {
+    id: '4',
+    title: 'Laporan Masalah',
+    subtitle: 'Beri tahu kami apa yang terjadi',
+    icon: { ios: 'ant', android: 'bug_report', web: 'bug_report' },
+  },
+];
+
+interface KamusItem {
+  id: string;
+  word: string;
+}
+
+const KAMUS_ITEMS: KamusItem[] = [
+  { id: '1', word: 'Maaf' },
+  { id: '2', word: 'Tolong' },
+  { id: '3', word: 'Permisi' },
+  { id: '4', word: 'Halo' },
+  { id: '5', word: 'Mulai' },
+  { id: '6', word: 'Berhenti' },
+  { id: '7', word: 'Lanjut' },
+  { id: '8', word: 'Sakit' },
+  { id: '9', word: 'Kembali' },
+  { id: '10', word: 'Awas' },
+];
+
+const FAQ_ITEMS_EXT: MenuItem[] = [
   {
     id: '4',
     title: 'Report an issue',
@@ -61,22 +86,6 @@ const FAQ_ITEMS: MenuItem[] = [
 export default function HelpScreen() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<HelpSubTab>('faq');
-  const [showTutorialModal, setShowTutorialModal] = useState(false);
-
-  useEffect(() => {
-    const checkTutorial = async () => {
-      try {
-        const hasSeenHelpTutorial = await AsyncStorage.getItem('has_seen_help_tutorial');
-        if (hasSeenHelpTutorial !== 'true') {
-          setShowTutorialModal(true);
-          await AsyncStorage.setItem('has_seen_help_tutorial', 'true');
-        }
-      } catch (e) {
-        console.error('Gagal mengecek status tutorial bantuan:', e);
-      }
-    };
-    checkTutorial();
-  }, []);
 
   const handleDevLogout = async () => {
     try {
@@ -122,13 +131,13 @@ export default function HelpScreen() {
       <View style={{ flex: 1, zIndex: 10 }}>
         {/* ── Top Header Bar ── */}
         <View
-          className="w-full h-[65px] px-6 flex-row items-center justify-between bg-white/80"
+          className="w-full h-16 px-6 flex-row items-center justify-between bg-white/80"
           style={{
-            shadowColor: '#000000',
-            shadowOffset: { width: 0, height: 1 },
-            shadowOpacity: 0.04,
-            shadowRadius: 4,
-            elevation: 2,
+            shadowColor: '#0F172A',
+            shadowOffset: { width: 0, height: 2 },
+            shadowOpacity: 0.03,
+            shadowRadius: 10,
+            elevation: 1,
             borderBottomWidth: 1,
             borderBottomColor: 'rgba(241, 245, 249, 0.8)',
           }}
@@ -137,11 +146,11 @@ export default function HelpScreen() {
           <Pressable
             className="w-10 h-10 rounded-full bg-white border border-slate-100 items-center justify-center"
             style={{
-              shadowColor: '#000000',
+              shadowColor: '#0F172A',
               shadowOffset: { width: 0, height: 2 },
-              shadowOpacity: 0.04,
-              shadowRadius: 6,
-              elevation: 2,
+              shadowOpacity: 0.03,
+              shadowRadius: 8,
+              elevation: 1,
             }}
           >
             <SymbolView
@@ -161,7 +170,7 @@ export default function HelpScreen() {
             {__DEV__ && (
               <Pressable
                 onPress={handleDevLogout}
-                className="bg-red-500 active:bg-red-600 px-3 h-10 rounded-full flex-row items-center gap-1 shadow-sm"
+                className="bg-red-500 px-3 h-10 rounded-full flex-row items-center gap-1 shadow-sm"
               >
                 <SymbolView
                   name={{ ios: 'rectangle.portrait.and.arrow.right', android: 'logout', web: 'logout' }}
@@ -198,11 +207,11 @@ export default function HelpScreen() {
             <View
               className="bg-white rounded-full p-1.5 flex-row items-center justify-between border border-slate-100/80"
               style={{
-                shadowColor: '#000000',
+                shadowColor: '#0F172A',
                 shadowOffset: { width: 0, height: 4 },
-                shadowOpacity: 0.04,
-                shadowRadius: 12,
-                elevation: 3,
+                shadowOpacity: 0.03,
+                shadowRadius: 16,
+                elevation: 1.5,
               }}
             >
               {/* Tab 1: FaQ */}
@@ -216,11 +225,11 @@ export default function HelpScreen() {
                 style={
                   activeTab === 'faq'
                     ? {
-                        shadowColor: '#000000',
+                        shadowColor: '#0F172A',
                         shadowOffset: { width: 0, height: 2 },
-                        shadowOpacity: 0.06,
-                        shadowRadius: 6,
-                        elevation: 2,
+                        shadowOpacity: 0.03,
+                        shadowRadius: 8,
+                        elevation: 1,
                       }
                     : undefined
                 }
@@ -245,11 +254,11 @@ export default function HelpScreen() {
                 style={
                   activeTab === 'kamus'
                     ? {
-                        shadowColor: '#000000',
+                        shadowColor: '#0F172A',
                         shadowOffset: { width: 0, height: 2 },
-                        shadowOpacity: 0.06,
-                        shadowRadius: 6,
-                        elevation: 2,
+                        shadowOpacity: 0.03,
+                        shadowRadius: 8,
+                        elevation: 1,
                       }
                     : undefined
                 }
@@ -274,11 +283,11 @@ export default function HelpScreen() {
                 style={
                   activeTab === 'history'
                     ? {
-                        shadowColor: '#000000',
+                        shadowColor: '#0F172A',
                         shadowOffset: { width: 0, height: 2 },
-                        shadowOpacity: 0.06,
-                        shadowRadius: 6,
-                        elevation: 2,
+                        shadowOpacity: 0.03,
+                        shadowRadius: 8,
+                        elevation: 1,
                       }
                     : undefined
                 }
@@ -302,7 +311,7 @@ export default function HelpScreen() {
                   key={item.id}
                   onPress={() => {
                     if (item.isTutorial) {
-                      setShowTutorialModal(true);
+                      router.push('/(tabs)/home?startTutorial=true');
                     } else if (item.id === '3' && __DEV__) {
                       handleDevLogout();
                     }
@@ -311,11 +320,11 @@ export default function HelpScreen() {
                     item.isTutorial ? 'border-[#0E8549]/40 bg-[#E8F8F0]/30' : 'border-slate-100/80'
                   }`}
                   style={{
-                    shadowColor: item.isTutorial ? '#0E8549' : '#000000',
-                    shadowOffset: { width: 0, height: 4 },
-                    shadowOpacity: item.isTutorial ? 0.08 : 0.05,
-                    shadowRadius: 14,
-                    elevation: 3,
+                    shadowColor: item.isTutorial ? '#0E8549' : '#0F172A',
+                    shadowOffset: { width: 0, height: 6 },
+                    shadowOpacity: item.isTutorial ? 0.15 : 0.03,
+                    shadowRadius: 18,
+                    elevation: 1.5,
                   }}
                 >
                   {/* Left Section: Icon + Text */}
@@ -348,25 +357,55 @@ export default function HelpScreen() {
               ))}
 
             {activeTab === 'kamus' && (
-              <View className="bg-white rounded-3xl p-8 items-center justify-center border border-slate-100/80 mt-2">
-                <View className="w-14 h-14 rounded-2xl bg-[#E8F8F0] items-center justify-center mb-3">
-                  <SymbolView
-                    name={{ ios: 'book', android: 'menu_book', web: 'menu_book' }}
-                    tintColor="#0E8549"
-                    size={28}
-                  />
-                </View>
-                <Text className="text-slate-800 text-base font-hanken-bold text-center">
-                  Kamus Bahasa Isyarat
-                </Text>
-                <Text className="text-slate-500 text-xs font-hanken-medium text-center mt-1">
-                  Kumpulan pustaka gerakan isyarat dan artinya
-                </Text>
+              <View className="gap-2 mt-1">
+                {KAMUS_ITEMS.map((item, index) => (
+                  <Pressable
+                    key={index}
+                    className="bg-white rounded-3xl py-5 px-5 flex-row items-center justify-between border border-slate-100/80 active:opacity-85"
+                    style={{
+                      shadowColor: '#0F172A',
+                      shadowOffset: { width: 0, height: 4 },
+                      shadowOpacity: 0.03,
+                      shadowRadius: 14,
+                      elevation: 1.5,
+                    }}
+                  >
+                    <View className="flex-row items-center flex-1">
+                      {/* Circle Number Badge */}
+                      <View className="w-11 h-11 rounded-full border border-slate-100 items-center justify-center bg-slate-50/40 mr-4">
+                        <Text className="text-slate-900 text-lg font-hanken-bold">
+                          {index + 1}
+                        </Text>
+                      </View>
+
+                      {/* Word Title */}
+                      <Text className="text-slate-900 text-[19px] font-hanken-bold flex-1">
+                        {item.word}
+                      </Text>
+                    </View>
+
+                    {/* Green Arrow */}
+                    <SymbolView
+                      name={{ ios: 'arrow.right', android: 'arrow_forward', web: 'arrow_forward' }}
+                      tintColor="#0E8549"
+                      size={22}
+                    />
+                  </Pressable>
+                ))}
               </View>
             )}
 
             {activeTab === 'history' && (
-              <View className="bg-white rounded-3xl p-8 items-center justify-center border border-slate-100/80 mt-2">
+              <View
+                className="bg-white rounded-3xl p-8 items-center justify-center border border-slate-100/80 mt-2"
+                style={{
+                  shadowColor: '#0F172A',
+                  shadowOffset: { width: 0, height: 6 },
+                  shadowOpacity: 0.03,
+                  shadowRadius: 18,
+                  elevation: 1.5,
+                }}
+              >
                 <View className="w-14 h-14 rounded-2xl bg-[#E8F8F0] items-center justify-center mb-3">
                   <SymbolView
                     name={{ ios: 'clock.arrow.circlepath', android: 'history', web: 'history' }}
@@ -384,20 +423,9 @@ export default function HelpScreen() {
             )}
           </View>
         </ScrollView>
-
-        {/* ── Bottom Navigation Bar ── */}
-        <BottomNavigationBar activeTab="help" />
       </View>
 
-      {/* ── Tutorial Modal (Manual Replay from Help screen) ── */}
-      <TutorialModal
-        visible={showTutorialModal}
-        onClose={() => setShowTutorialModal(false)}
-        onStartSpotlight={() => {
-          setShowTutorialModal(false);
-          router.push('/record?startTutorial=true');
-        }}
-      />
+
     </SafeAreaView>
   );
 }

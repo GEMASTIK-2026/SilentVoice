@@ -2,7 +2,8 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
 import { CameraView, useCameraPermissions, CameraType } from 'expo-camera';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ImageBackground, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ImageBackground, Platform, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import Animated, { useSharedValue, useAnimatedStyle, withTiming, Easing } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SpotlightOverlay, type SpotlightStep } from '@/components/spotlight-overlay';
@@ -58,11 +59,27 @@ export default function RecordScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{ startTutorial?: string }>();
   const insets = useSafeAreaInsets();
+  const { width: screenWidth } = useWindowDimensions();
+  // Lingkaran mengisi lebar penuh container (px-6 = 24px tiap sisi)
+  const circleSize = screenWidth - 24;
 
   const [permission, requestPermission] = useCameraPermissions();
   const [facing, setFacing] = useState<CameraType>('back');
   const [enableTorch, setEnableTorch] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
+
+  // Shared value untuk animasi crossfade ikon tombol record
+  const recordingProgress = useSharedValue(0);
+  useEffect(() => {
+    recordingProgress.value = withTiming(isRecording ? 1 : 0, {
+      duration: 150,
+      easing: Easing.out(Easing.quad),
+    });
+  }, [isRecording, recordingProgress]);
+
+  // Style opacity untuk crossfade: lingkaran putih (saat tidak rekam) ↔ kotak stop (saat rekam)
+  const idleIconStyle = useAnimatedStyle(() => ({ opacity: 1 - recordingProgress.value }));
+  const stopIconStyle = useAnimatedStyle(() => ({ opacity: recordingProgress.value }));
 
   // Tutorial Spotlight states
   const [showSpotlight, setShowSpotlight] = useState(false);
@@ -212,13 +229,30 @@ export default function RecordScreen() {
           </Pressable>
         </View>
 
-        {/* ── Camera Viewfinder Card ── */}
+        {/* ── Camera Viewfinder — Lingkaran Glassmorphism ── */}
         <View
           ref={viewfinderRef}
           onLayout={() => measureEl('viewfinder', viewfinderRef)}
-          className="flex-1 mt-2 relative justify-center items-center bg-black/10 rounded-[32px] border border-white/70 overflow-hidden shadow-sm"
+          style={{
+            width: circleSize,
+            height: circleSize,
+            borderRadius: circleSize / 2,
+            overflow: 'hidden',
+            alignSelf: 'center',
+            alignItems: 'center',
+            justifyContent: 'center',
+            backgroundColor: 'rgba(255, 255, 255, 0.68)',
+            borderWidth: 2,
+            borderColor: 'rgba(255, 255, 255, 0.90)',
+            shadowColor: '#0E8549',
+            shadowOffset: { width: 0, height: 12 },
+            shadowOpacity: 0.10,
+            shadowRadius: 28,
+            elevation: 5,
+            marginTop: 0,
+          }}
         >
-          {/* Live Camera View or Permission Prompt */}
+          {/* Live Camera atau Prompt Izin */}
           {permission?.granted ? (
             <CameraView
               style={StyleSheet.absoluteFill}
@@ -226,23 +260,39 @@ export default function RecordScreen() {
               enableTorch={Platform.OS !== 'web' && facing === 'back' && enableTorch}
             />
           ) : (
-            <View className="bg-white/75 rounded-3xl p-6 px-8 items-center justify-center border border-white/80 shadow-sm max-w-[280px]">
-              <View className="mb-2">
+            <View className="items-center justify-center px-10">
+              <View
+                className="w-20 h-20 rounded-full bg-white/80 items-center justify-center mb-4"
+                style={{
+                  shadowColor: '#0E8549',
+                  shadowOffset: { width: 0, height: 4 },
+                  shadowOpacity: 0.12,
+                  shadowRadius: 12,
+                  elevation: 3,
+                }}
+              >
                 <SymbolView
-                  name={{ ios: 'camera.fill', android: 'photo_camera', web: 'photo_camera' }}
+                  name={{ ios: 'camera', android: 'photo_camera', web: 'photo_camera' }}
                   tintColor="#0E8549"
-                  size={44}
+                  size={36}
                 />
               </View>
-              <Text className="text-slate-800 text-xl font-hanken-bold text-center mt-1">
-                Akses Kamera
+              <Text className="text-slate-800 text-lg font-hanken-bold text-center">
+                Kamera
               </Text>
-              <Text className="text-slate-500 text-sm font-hanken-medium text-center mt-1 mb-4">
-                Aplikasi memerlukan izin untuk menggunakan kamera
+              <Text className="text-slate-500 text-sm font-hanken-medium text-center mt-1 mb-5">
+                Mengarahkan ke subjek
               </Text>
               <Pressable
                 onPress={requestPermission}
                 className="bg-[#0E8549] px-6 py-3 rounded-full active:bg-[#0B6B3A]"
+                style={{
+                  shadowColor: '#0E8549',
+                  shadowOffset: { width: 0, height: 4 },
+                  shadowOpacity: 0.3,
+                  shadowRadius: 8,
+                  elevation: 4,
+                }}
               >
                 <Text className="text-white font-hanken-semibold text-sm">
                   Izinkan Akses Kamera
@@ -251,33 +301,11 @@ export default function RecordScreen() {
             </View>
           )}
 
-          {/* Viewfinder Corner Brackets Overlay */}
-          {/* Top-Left */}
-          <View
-            pointerEvents="none"
-            className="absolute top-6 left-6 w-9 h-9 border-t-[2.5px] border-l-[2.5px] border-[#65C294] rounded-tl-2xl z-10"
-          />
-          {/* Top-Right */}
-          <View
-            pointerEvents="none"
-            className="absolute top-6 right-6 w-9 h-9 border-t-[2.5px] border-r-[2.5px] border-[#65C294] rounded-tr-2xl z-10"
-          />
-          {/* Bottom-Left */}
-          <View
-            pointerEvents="none"
-            className="absolute bottom-6 left-6 w-9 h-9 border-b-[2.5px] border-l-[2.5px] border-[#65C294] rounded-bl-2xl z-10"
-          />
-          {/* Bottom-Right */}
-          <View
-            pointerEvents="none"
-            className="absolute bottom-6 right-6 w-9 h-9 border-b-[2.5px] border-r-[2.5px] border-[#65C294] rounded-br-2xl z-10"
-          />
-
-          {/* Camera Guidance Pill Overlay (When camera is active) */}
+          {/* Pill panduan — tampil saat kamera aktif */}
           {permission?.granted && (
             <View
               pointerEvents="none"
-              className="absolute bottom-5 bg-black/60 px-4 py-2 rounded-full border border-white/20 z-10"
+              className="absolute bottom-8 bg-black/50 px-5 py-2 rounded-full border border-white/20"
             >
               <Text className="text-white text-xs font-hanken-medium tracking-wide">
                 Mengarahkan ke subjek
@@ -290,7 +318,7 @@ export default function RecordScreen() {
         <View
           ref={outputCardRef}
           onLayout={() => measureEl('outputCard', outputCardRef)}
-          className="bg-white rounded-3xl p-6 shadow-sm mt-4 min-h-[145px] justify-start border border-slate-100/60"
+          className="bg-white rounded-3xl p-6 shadow-sm mt-4 min-h-72 justify-start border border-slate-100/60"
           style={{
             shadowColor: '#000',
             shadowOffset: { width: 0, height: 4 },
@@ -300,7 +328,7 @@ export default function RecordScreen() {
           }}
         >
           <Text className="text-slate-800 text-[22px] font-hanken-bold leading-tight">
-            Output{'\n'}Konversi
+            Hasil Konversi
           </Text>
           <Text
             className={`text-base font-hanken-medium mt-3 ${
@@ -392,11 +420,17 @@ export default function RecordScreen() {
                   elevation: 6,
                 }}
               >
-                <SymbolView
-                  name={{ ios: 'mic.fill', android: 'mic', web: 'mic' }}
-                  tintColor="#FFFFFF"
-                  size={32}
-                />
+              <View style={{ width: 32, height: 32, alignItems: 'center', justifyContent: 'center' }}>
+                {/* Lingkaran putih — tampil saat tidak merekam */}
+                <Animated.View style={[StyleSheet.absoluteFill, idleIconStyle, { alignItems: 'center', justifyContent: 'center' }]}>
+                  <View className="w-6 h-6 rounded-full bg-white" />
+                </Animated.View>
+
+                {/* Icon kotak (stop) — tampil saat merekam */}
+                <Animated.View style={[StyleSheet.absoluteFill, stopIconStyle, { alignItems: 'center', justifyContent: 'center' }]}>
+                  <View className='w-6 h-6 rounded-none bg-white' />
+                </Animated.View>
+              </View>
               </View>
             </View>
           </Pressable>
@@ -428,8 +462,8 @@ export default function RecordScreen() {
                 <SymbolView
                   name={{
                     ios: 'arrow.triangle.2.circlepath',
-                    android: 'flip_camera_android',
-                    web: 'flip_camera_android',
+                    android: 'sync',
+                    web: 'sync',
                   }}
                   tintColor="#FFFFFF"
                   size={24}

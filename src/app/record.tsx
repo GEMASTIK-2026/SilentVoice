@@ -1,7 +1,8 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ImageBackground, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ImageBackground, Platform, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import Animated, { useSharedValue, useAnimatedStyle, withTiming, Easing } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SpotlightOverlay, type SpotlightStep } from '@/components/spotlight-overlay';
@@ -59,6 +60,9 @@ export default function RecordScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{ startTutorial?: string }>();
   const insets = useSafeAreaInsets();
+  const { width: screenWidth } = useWindowDimensions();
+  // Lingkaran mengisi lebar penuh container (px-6 = 24px tiap sisi)
+  const circleSize = screenWidth - 24;
 
   // ── Capture engine (PART A.3/A.4): session, queue FIFO, hasil terurut ──
   const { captureState, results, pending, engineState, faceDetected, startSession, stopSession } = useCaptureEngine();
@@ -67,6 +71,19 @@ export default function RecordScreen() {
   const [enableTorch, setEnableTorch] = useState(false);
   // isRecording di-drive oleh state machine native (bukan toggle boolean)
   const isRecording = captureState !== 'idle' || pending.length > 0;
+
+  // Shared value untuk animasi crossfade ikon tombol record
+  const recordingProgress = useSharedValue(0);
+  useEffect(() => {
+    recordingProgress.value = withTiming(isRecording ? 1 : 0, {
+      duration: 150,
+      easing: Easing.out(Easing.quad),
+    });
+  }, [isRecording, recordingProgress]);
+
+  // Style opacity untuk crossfade: lingkaran putih (saat tidak rekam) ↔ kotak stop (saat rekam)
+  const idleIconStyle = useAnimatedStyle(() => ({ opacity: 1 - recordingProgress.value }));
+  const stopIconStyle = useAnimatedStyle(() => ({ opacity: recordingProgress.value }));
 
   // Tutorial Spotlight states
   const [showSpotlight, setShowSpotlight] = useState(false);
@@ -222,13 +239,33 @@ export default function RecordScreen() {
           </Pressable>
         </View>
 
-        {/* ── Camera Viewfinder Card (BULAT) ── */}
+        {/* ── Camera Viewfinder — Lingkaran Glassmorphism (layout dev) ── */}
+        {/* Konten video memakai LipCaptureView (vision-camera + frame processor kita),
+            bukan CameraView expo-camera milik dev — fungsi lip-reading tetap milik kita. */}
         <View
           ref={viewfinderRef}
           onLayout={() => measureEl('viewfinder', viewfinderRef)}
-          className="flex-1 mt-2 relative justify-center items-center bg-black/10 rounded-full border border-white/70 overflow-hidden shadow-sm"
+          style={{
+            width: circleSize,
+            height: circleSize,
+            borderRadius: circleSize / 2,
+            overflow: 'hidden',
+            alignSelf: 'center',
+            alignItems: 'center',
+            justifyContent: 'center',
+            backgroundColor: 'rgba(255, 255, 255, 0.68)',
+            borderWidth: 2,
+            borderColor: 'rgba(255, 255, 255, 0.90)',
+            shadowColor: '#0E8549',
+            shadowOffset: { width: 0, height: 12 },
+            shadowOpacity: 0.10,
+            shadowRadius: 28,
+            elevation: 5,
+            marginTop: 0,
+          }}
         >
-          {/* Live Camera via LipCaptureView (vision-camera + frame processor) */}
+          {/* Live Camera via LipCaptureView (vision-camera + frame processor).
+              LipCaptureView menangani izin kamera secara mandiri. */}
           <LipCaptureView
             facing={facing}
             enableTorch={enableTorch}
@@ -242,11 +279,8 @@ export default function RecordScreen() {
             className="absolute inset-3 rounded-full border-2 border-[#65C294]/60 z-10"
           />
 
-          {/* Status Pill — di atas box kamera (sisa space kecil) */}
-          <View
-            pointerEvents="none"
-            className="absolute top-4 left-0 right-0 items-center z-20"
-          >
+          {/* Pill status — logika state machine kita (4 kondisi), posisi bawah glassmorphism dev */}
+          <View pointerEvents="none" className="absolute bottom-8 z-20">
             <View
               className={`px-4 py-1.5 rounded-full border ${
                 engineState === 'recording'
@@ -275,7 +309,7 @@ export default function RecordScreen() {
         <View
           ref={outputCardRef}
           onLayout={() => measureEl('outputCard', outputCardRef)}
-          className="bg-white rounded-3xl p-6 shadow-sm mt-4 min-h-[240px] justify-start border border-slate-100/60"
+          className="bg-white rounded-3xl p-6 shadow-sm mt-4 min-h-72 justify-start border border-slate-100/60"
           style={{
             shadowColor: '#000',
             shadowOffset: { width: 0, height: 4 },
@@ -285,7 +319,7 @@ export default function RecordScreen() {
           }}
         >
           <Text className="text-slate-800 text-[22px] font-hanken-bold leading-tight">
-            Output{'\n'}Konversi
+            Hasil Konversi
           </Text>
 
           {/* Kondisi 1: WAITING_FOR_OPEN aktif */}
@@ -425,11 +459,17 @@ export default function RecordScreen() {
                   elevation: 6,
                 }}
               >
-                <SymbolView
-                  name={{ ios: 'mic.fill', android: 'mic', web: 'mic' }}
-                  tintColor="#FFFFFF"
-                  size={32}
-                />
+              <View style={{ width: 32, height: 32, alignItems: 'center', justifyContent: 'center' }}>
+                {/* Lingkaran putih — tampil saat tidak merekam */}
+                <Animated.View style={[StyleSheet.absoluteFill, idleIconStyle, { alignItems: 'center', justifyContent: 'center' }]}>
+                  <View className="w-6 h-6 rounded-full bg-white" />
+                </Animated.View>
+
+                {/* Icon kotak (stop) — tampil saat merekam */}
+                <Animated.View style={[StyleSheet.absoluteFill, stopIconStyle, { alignItems: 'center', justifyContent: 'center' }]}>
+                  <View className='w-6 h-6 rounded-none bg-white' />
+                </Animated.View>
+              </View>
               </View>
             </View>
           </Pressable>
@@ -460,8 +500,8 @@ export default function RecordScreen() {
                 <SymbolView
                   name={{
                     ios: 'arrow.triangle.2.circlepath',
-                    android: 'flip_camera_android',
-                    web: 'flip_camera_android',
+                    android: 'sync',
+                    web: 'sync',
                   }}
                   tintColor="#FFFFFF"
                   size={24}

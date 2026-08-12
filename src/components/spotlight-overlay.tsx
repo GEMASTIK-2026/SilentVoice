@@ -42,11 +42,13 @@ interface SpotlightOverlayProps {
   visible: boolean;
   steps: SpotlightStep[];
   currentStepIndex: number;
-  /**
-   * Default jarak offset/kedekatan kartu tooltip untuk seluruh langkah jika tidak ditentukan per step.
-   * Nilai default: 16px.
-   */
   defaultTooltipOffset?: number;
+  /**
+   * Jika true, hanya tampilkan tooltip card tanpa dark overlay.
+   * Digunakan ketika highlight ditampilkan langsung oleh komponen lain
+   * (mis. pulsing ring di BottomNavigationBar).
+   */
+  tooltipOnly?: boolean;
   onNext: () => void;
   onPrev: () => void;
   onFinish: () => void;
@@ -58,6 +60,7 @@ export function SpotlightOverlay({
   steps,
   currentStepIndex,
   defaultTooltipOffset = 16,
+  tooltipOnly = false,
   onNext,
   onPrev,
   onFinish,
@@ -161,52 +164,54 @@ export function SpotlightOverlay({
       style={StyleSheet.absoluteFill}
       className="z-50 pointer-events-box-none flex-1 justify-between p-6 overflow-hidden"
     >
-      {/* ── Synchronized Animated Rounded Cutout Mask ── */}
-      {area ? (
-        <View style={StyleSheet.absoluteFill} pointerEvents="none" className="z-0 overflow-hidden">
-          <Animated.View
-            style={[
-              animatedPulseStyle,
-              {
-                position: 'absolute',
-                top: topCoord - 1800,
-                left: leftCoord - 1800,
-                width: spotlightWidth + 3600,
-                height: heightCoord + 3600,
-                borderRadius: borderRadius + 1800,
-                borderWidth: 1800,
-                borderColor: 'rgba(0, 0, 0, 0.85)',
-                backgroundColor: 'transparent',
-              },
-            ]}
+      {/* ── Dark Overlay / Cutout Mask — disembunyikan saat tooltipOnly ── */}
+      {!tooltipOnly && (
+        area ? (
+          <View style={StyleSheet.absoluteFill} pointerEvents="none" className="z-0 overflow-hidden">
+            <Animated.View
+              style={[
+                animatedPulseStyle,
+                {
+                  position: 'absolute',
+                  top: topCoord - 1800,
+                  left: leftCoord - 1800,
+                  width: spotlightWidth + 3600,
+                  height: heightCoord + 3600,
+                  borderRadius: borderRadius + 1800,
+                  borderWidth: 1800,
+                  borderColor: 'rgba(0, 0, 0, 0.85)',
+                  backgroundColor: 'transparent',
+                },
+              ]}
+            >
+              {/* Glowing Emerald Border around the exact rounded cutout */}
+              <View
+                style={{
+                  width: spotlightWidth,
+                  height: heightCoord,
+                  borderRadius,
+                }}
+                className="border-2 border-[#34D399]"
+              />
+            </Animated.View>
+          </View>
+        ) : (
+          /* Fallback dark overlay when no specific highlight area */
+          <View
+            style={StyleSheet.absoluteFill}
+            pointerEvents="none"
+            className="z-0 bg-black/85 items-center justify-center"
           >
-            {/* Glowing Emerald Border around the exact rounded cutout */}
-            <View
-              style={{
-                width: spotlightWidth,
-                height: heightCoord,
-                borderRadius,
-              }}
-              className="border-2 border-[#34D399]"
-            />
-          </Animated.View>
-        </View>
-      ) : (
-        /* Fallback dark overlay when no specific highlight area */
-        <View
-          style={StyleSheet.absoluteFill}
-          pointerEvents="none"
-          className="z-0 bg-black/85 items-center justify-center"
-        >
-          <Animated.View
-            style={[animatedPulseStyle]}
-            className="w-28 h-28 rounded-full border-2 border-[#34D399] bg-[#0E8549]/20 items-center justify-center"
-          >
-            <View className="w-16 h-16 rounded-full bg-[#0E8549]/40 items-center justify-center border border-[#34D399]">
-              <SymbolView name={currentStep.icon} tintColor="#FFFFFF" size={32} />
-            </View>
-          </Animated.View>
-        </View>
+            <Animated.View
+              style={[animatedPulseStyle]}
+              className="w-28 h-28 rounded-full border-2 border-[#34D399] bg-[#0E8549]/20 items-center justify-center"
+            >
+              <View className="w-16 h-16 rounded-full bg-[#0E8549]/40 items-center justify-center border border-[#34D399]">
+                <SymbolView name={currentStep.icon} tintColor="#FFFFFF" size={32} />
+              </View>
+            </Animated.View>
+          </View>
+        )
       )}
 
       {/* Top Bar with Step Counter & Skip button */}

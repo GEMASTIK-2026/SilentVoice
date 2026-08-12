@@ -30,7 +30,7 @@ export default function SplashScreenComponent() {
     try {
       const hasOnboarded = await AsyncStorage.getItem('has_onboarded');
       if (hasOnboarded === 'true') {
-        router.replace('/home');
+        router.replace('/(tabs)/home');
       } else {
         router.replace('/onboarding');
       }

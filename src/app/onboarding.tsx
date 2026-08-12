@@ -4,7 +4,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { SymbolView } from 'expo-symbols';
-import { useCallback, useRef, useState } from 'react';
+import { useState } from 'react';
 import {
   Keyboard,
   KeyboardAvoidingView,
@@ -25,38 +25,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { SpotlightOverlay, type SpotlightStep } from '@/components/spotlight-overlay';
 
-// Template steps — hanya metadata. highlightArea diisi dinamis dari measureInWindow.
-const ONBOARDING_STEP_TEMPLATES: Omit<SpotlightStep, 'highlightArea'>[] = [
-  {
-    tooltipOffset: -45,
-    id: 'welcome',
-    title: 'Selamat Datang di SilentVoice',
-    description:
-      'Aplikasi kecerdasan buatan pembaca gerak bibir (Lipreading) yang dirancang khusus untuk membantu komunikasi pasien laringektomi.',
-    icon: { ios: 'hand.wave.fill', android: 'waving_hand', web: 'waving_hand' },
-    tooltipPosition: 'bottom',
-  },
-  {
-    id: 'profile_form',
-    title: 'Pengisian Data Diri',
-    description:
-      'Silakan masukkan nama panggilan, usia, dan jenis kelamin Anda pada kolom teks & tombol pilihan berikut.',
-    icon: { ios: 'text.cursor', android: 'edit_note', web: 'edit_note' },
-    tooltipPosition: 'top',
-    tooltipOffset: 20,
-  },
-  {
-    id: 'submit_button',
-    title: 'Tekan Tombol Selanjutnya',
-    description:
-      'Setelah semua data terisi dengan lengkap, tekan tombol Selanjutnya ini untuk menyimpan data profil Anda.',
-    icon: { ios: 'arrow.right.circle.fill', android: 'arrow_forward', web: 'arrow_forward' },
-    tooltipPosition: 'top',
-    tooltipOffset: 20,
-  },
-];
 
 export default function OnboardingLoginScreen() {
   const insets = useSafeAreaInsets();
@@ -66,58 +35,6 @@ export default function OnboardingLoginScreen() {
   const [age, setAge] = useState('');
   const [gender, setGender] = useState<'pria' | 'wanita' | null>(null);
 
-  // Spotlight tutorial (otomatis muncul pertama kali)
-  const [showSpotlight, setShowSpotlight] = useState(true);
-  const [currentStepIndex, setCurrentStepIndex] = useState(0);
-  const [dynamicSteps, setDynamicSteps] = useState<SpotlightStep[]>([]);
-
-  // Refs untuk elemen yang di-highlight
-  const mainCardRef = useRef<View>(null);
-  const formAreaRef = useRef<View>(null);
-  const submitBtnRef = useRef<View>(null);
-  const measurementsRef = useRef<Record<string, { x: number; y: number; width: number; height: number }>>({});
-
-  /** Membaca semua pengukuran dan membangun dynamicSteps. */
-  const buildDynamicSteps = useCallback(() => {
-    const m = measurementsRef.current;
-    const PAD = 8;
-    const steps: SpotlightStep[] = ONBOARDING_STEP_TEMPLATES.map((template) => {
-      let highlightArea: SpotlightStep['highlightArea'];
-      switch (template.id) {
-        case 'welcome': {
-          const v = m.mainCard;
-          highlightArea = v ? { top: v.y - PAD, left: v.x - PAD, width: v.width + PAD * 2, height: v.height + PAD * 2, borderRadius: 32 } : undefined;
-          break;
-        }
-        case 'profile_form': {
-          const v = m.formArea;
-          highlightArea = v ? { top: v.y - PAD, left: v.x - PAD, width: v.width + PAD * 2, height: v.height + PAD * 2, borderRadius: 24 } : undefined;
-          break;
-        }
-        case 'submit_button': {
-          const v = m.submitBtn;
-          highlightArea = v ? { top: v.y - PAD, left: v.x - PAD, width: v.width + PAD * 2, height: v.height + PAD * 2, borderRadius: 12 } : undefined;
-          break;
-        }
-      }
-      return { ...template, highlightArea };
-    });
-    setDynamicSteps(steps);
-  }, []);
-
-  /** Mengukur satu elemen dengan rAF lalu rebuild steps. */
-  const measureEl = useCallback((key: string, ref: React.RefObject<View | null>) => {
-    requestAnimationFrame(() => {
-      ref.current?.measureInWindow((x, y, width, height) => {
-        if (width > 0 && height > 0) {
-          measurementsRef.current[key] = { x, y, width, height };
-          buildDynamicSteps();
-        }
-      });
-    });
-  }, [buildDynamicSteps]);
-
-  const activeSteps = dynamicSteps.length > 0 ? dynamicSteps : ONBOARDING_STEP_TEMPLATES as SpotlightStep[];
 
   // Validation error states
   const [errors, setErrors] = useState({
@@ -210,51 +127,45 @@ export default function OnboardingLoginScreen() {
         </View>
 
         <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
           className="flex-1 z-10"
         >
           <ScrollView
             contentContainerStyle={{
               flexGrow: 1,
-              justifyContent: 'center',
-              alignItems: 'center',
               paddingTop: insets.top + 20,
               paddingBottom: insets.bottom + 20,
               paddingHorizontal: 20,
             }}
             keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="on-drag"
             showsVerticalScrollIndicator={false}
           >
-            {/* Soft Floating Glassmorphic Card Container */}
-            <View
-              ref={mainCardRef}
-              onLayout={() => measureEl('mainCard', mainCardRef)}
-              className="w-full max-w-full border border-white/80 rounded-3xl p-6"
-              style={{
-                backgroundColor: 'rgba(255, 255, 255, 0.88)',
-                shadowColor: '#0F172A',
-                shadowOffset: { width: 0, height: 8 },
-                shadowOpacity: 0.06,
-                shadowRadius: 24,
-                elevation: 4,
-              }}
-            >
-              {/* Header Logo */}
-              <View className="items-center justify-center my-2 mb-6 bg-transparent">
-                <Image
-                  source={require('@/assets/images/LogoSV.webp')}
-                  style={{ width: 276, height: 276 }}
-                  contentFit="contain"
-                  alt="Silent Voice Logo"
-                />
-              </View>
+            <View className="flex-1 justify-center items-center w-full my-auto">
+              {/* Soft Floating Glassmorphic Card Container */}
+              <View
+                className="w-full max-w-full border border-white/80 rounded-3xl p-6"
+                style={{
+                  backgroundColor: '#FFFFFF',
+                  shadowColor: '#0F172A',
+                  shadowOffset: { width: 0, height: 8 },
+                  shadowOpacity: 0.03,
+                  shadowRadius: 24,
+                  elevation: 2,
+                }}
+              >
+                {/* Header Logo */}
+                <View className="items-center justify-center my-2 mb-4 bg-transparent">
+                  <Image
+                    source={require('@/assets/images/LogoSV.webp')}
+                    style={{ width: 300, height: 100 }}
+                    contentFit="contain"
+                    alt="Silent Voice Logo"
+                  />
+                </View>
 
               {/* Form Input Fields */}
-              <View
-                ref={formAreaRef}
-                onLayout={() => measureEl('formArea', formAreaRef)}
-                className="gap-4"
-              >
+              <View className="gap-4">
                 {/* Input 1: Name */}
                 <View>
                   <View
@@ -263,10 +174,10 @@ export default function OnboardingLoginScreen() {
                       {
                         borderColor: errors.name ? '#EF4444' : 'rgba(241, 245, 249, 0.8)',
                         shadowColor: '#000000',
-                        shadowOffset: { width: 0, height: 4.14 },
-                        shadowOpacity: 0.1,
-                        shadowRadius: 31.08,
-                        elevation: 4,
+                        shadowOffset: { width: 0, height: 2 },
+                        shadowOpacity: 0.02,
+                        shadowRadius: 6,
+                        elevation: 1,
                       },
                     ]}
                   >
@@ -297,10 +208,10 @@ export default function OnboardingLoginScreen() {
                       {
                         borderColor: errors.age ? '#EF4444' : 'rgba(241, 245, 249, 0.8)',
                         shadowColor: '#000000',
-                        shadowOffset: { width: 0, height: 4.14 },
-                        shadowOpacity: 0.1,
-                        shadowRadius: 31.08,
-                        elevation: 4,
+                        shadowOffset: { width: 0, height: 2 },
+                        shadowOpacity: 0.02,
+                        shadowRadius: 6,
+                        elevation: 1,
                       },
                     ]}
                   >
@@ -340,10 +251,10 @@ export default function OnboardingLoginScreen() {
                         }`}
                       style={{
                         shadowColor: '#000000',
-                        shadowOffset: { width: 0, height: 4.14 },
-                        shadowOpacity: 0.1,
-                        shadowRadius: 31.08,
-                        elevation: 4,
+                        shadowOffset: { width: 0, height: 2 },
+                        shadowOpacity: 0.02,
+                        shadowRadius: 6,
+                        elevation: 1,
                       }}
                     >
                       <SymbolView
@@ -373,10 +284,10 @@ export default function OnboardingLoginScreen() {
                         }`}
                       style={{
                         shadowColor: '#000000',
-                        shadowOffset: { width: 0, height: 4.14 },
-                        shadowOpacity: 0.1,
-                        shadowRadius: 31.08,
-                        elevation: 4,
+                        shadowOffset: { width: 0, height: 2 },
+                        shadowOpacity: 0.02,
+                        shadowRadius: 6,
+                        elevation: 1,
                       }}
                     >
                       <SymbolView
@@ -401,23 +312,20 @@ export default function OnboardingLoginScreen() {
 
                 {/* Submit Button ("Selanjutnya →") */}
                 <Pressable
-                  ref={submitBtnRef}
-                  onLayout={() => measureEl('submitBtn', submitBtnRef)}
                   onPress={handleLogin}
                   onPressIn={handlePressIn}
                   onPressOut={handlePressOut}
                   style={{
-                    borderRadius: 8.29,
-                    overflow: 'hidden',
+                    borderRadius: 12,
                     marginTop: 16,
-                    shadowColor: '#000000',
-                    shadowOffset: { width: 0, height: 4.14 },
-                    shadowOpacity: 0.1,
-                    shadowRadius: 31.08,
-                    elevation: 4,
+                    shadowColor: '#006D37',
+                    shadowOffset: { width: 0, height: 6 },
+                    shadowOpacity: 0.18,
+                    shadowRadius: 16,
+                    elevation: 3,
                   }}
                 >
-                  <Animated.View style={btnAnimatedStyle}>
+                  <Animated.View style={[btnAnimatedStyle, { borderRadius: 12, overflow: 'hidden' }]}>
                     <LinearGradient
                       colors={['#2ECC71', '#006D37']}
                       start={{ x: 0, y: 0.5 }}
@@ -442,22 +350,10 @@ export default function OnboardingLoginScreen() {
                   </Animated.View>
                 </Pressable>
               </View>
+              </View>
             </View>
           </ScrollView>
         </KeyboardAvoidingView>
-
-        {/* ── Onboarding Spotlight Interactive Overlay ── */}
-        <SpotlightOverlay
-          visible={showSpotlight}
-          steps={activeSteps}
-          currentStepIndex={currentStepIndex}
-          onNext={() =>
-            setCurrentStepIndex((prev) => Math.min(prev + 1, activeSteps.length - 1))
-          }
-          onPrev={() => setCurrentStepIndex((prev) => Math.max(prev - 1, 0))}
-          onFinish={() => setShowSpotlight(false)}
-          onSkip={() => setShowSpotlight(false)}
-        />
       </View>
     </TouchableWithoutFeedback>
   );

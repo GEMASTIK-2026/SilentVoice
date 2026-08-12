@@ -236,7 +236,7 @@ export default function HelpScreen() {
 
               {/* Tab 2: Kamus */}
               <Pressable
-                onPress={() => setActiveTab('kamus')}
+                onPress={() => router.push('/kamus')}
                 className={`flex-1 py-2.5 rounded-full items-center justify-center ${
                   activeTab === 'kamus'
                     ? 'bg-white shadow-sm border border-slate-100/80'

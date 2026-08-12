@@ -4,32 +4,41 @@
     "slug": "SilentVoice",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./src/assets/images/LogoSV.webp",
+    "icon": "./src/assets/images/LogoSV.png",
     "scheme": "silentvoice",
     "userInterfaceStyle": "automatic",
     "ios": {
-      "icon": "./src/assets/images/LogoSV.webp"
+      "icon": "./src/assets/images/LogoSV.png",
+      "infoPlist": {
+        "NSCameraUsageDescription": "SilentVoice memerlukan akses kamera untuk konversi bahasa isyarat."
+      }
     },
     "android": {
       "adaptiveIcon": {
         "backgroundColor": "#FFFFFF",
-        "foregroundImage": "./src/assets/images/LogoSV.webp",
-        "backgroundImage": "./src/assets/images/LogoSV.webp",
-        "monochromeImage": "./src/assets/images/LogoSV.webp"
+        "foregroundImage": "./src/assets/images/LogoSV.png",
+        "backgroundImage": "./src/assets/images/LogoSV.png",
+        "monochromeImage": "./src/assets/images/LogoSV.png"
       },
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "permissions": [
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO"
+      ],
+      "package": "com.anonymous.SilentVoice"
     },
     "web": {
       "output": "static",
-      "favicon": "./src/assets/images/LogoSV.webp"
+      "favicon": "./src/assets/images/LogoSV.png"
     },
     "plugins": [
       "expo-router",
+      "./plugins/withLipPipeline",
       [
         "expo-splash-screen",
         {
           "backgroundColor": "#FFFFFF",
-          "image": "./src/assets/images/LogoSV.webp",
+          "image": "./src/assets/images/LogoSV.png",
           "imageWidth": 120
         }
       ],
@@ -44,6 +53,7 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
-    }
+    },
+    "newArchEnabled": false
   }
 }

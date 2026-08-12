@@ -1,11 +1,12 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
-import { CameraView, useCameraPermissions, CameraType } from 'expo-camera';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ImageBackground, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SpotlightOverlay, type SpotlightStep } from '@/components/spotlight-overlay';
+import { LipCaptureView } from '@/components/lip-capture-view';
+import { useCaptureEngine } from '@/lib/useCaptureEngine';
 
 // Template steps — hanya berisi metadata (title, desc, icon, tooltipPosition).
 // highlightArea akan diisi secara dinamis dari hasil measureInWindow.
@@ -59,10 +60,13 @@ export default function RecordScreen() {
   const params = useLocalSearchParams<{ startTutorial?: string }>();
   const insets = useSafeAreaInsets();
 
-  const [permission, requestPermission] = useCameraPermissions();
-  const [facing, setFacing] = useState<CameraType>('back');
+  // ── Capture engine (PART A.3/A.4): session, queue FIFO, hasil terurut ──
+  const { captureState, results, pending, engineState, faceDetected, startSession, stopSession } = useCaptureEngine();
+
+  const [facing, setFacing] = useState<'front' | 'back'>('back');
   const [enableTorch, setEnableTorch] = useState(false);
-  const [isRecording, setIsRecording] = useState(false);
+  // isRecording di-drive oleh state machine native (bukan toggle boolean)
+  const isRecording = captureState !== 'idle' || pending.length > 0;
 
   // Tutorial Spotlight states
   const [showSpotlight, setShowSpotlight] = useState(false);
@@ -153,7 +157,7 @@ export default function RecordScreen() {
   }, [buildDynamicSteps]);
 
   const isTorchSupported = facing === 'back';
-  const isTorchDisabled = !permission?.granted || !isTorchSupported;
+  const isTorchDisabled = !isTorchSupported;
 
   // Steps yang aktif: gunakan dynamicSteps jika sudah siap, fallback ke template
   const activeSteps = dynamicSteps.length > 0 ? dynamicSteps : RECORD_STEP_TEMPLATES as SpotlightStep[];
@@ -169,13 +173,19 @@ export default function RecordScreen() {
   };
 
   const toggleTorch = () => {
-    if (permission?.granted && isTorchSupported) {
+    if (isTorchSupported) {
       setEnableTorch((prev) => !prev);
     }
   };
 
+  // toggleRecording = start/stop SESI (bukan sekali capture).
+  // Saat stop: loop dihentikan, tapi clip yang masih di antrian proses tetap selesai.
   const toggleRecording = () => {
-    setIsRecording((prev) => !prev);
+    if (captureState === 'idle') {
+      startSession();
+    } else {
+      stopSession();
+    }
   };
 
   return (
@@ -212,85 +222,60 @@ export default function RecordScreen() {
           </Pressable>
         </View>
 
-        {/* ── Camera Viewfinder Card ── */}
+        {/* ── Camera Viewfinder Card (BULAT) ── */}
         <View
           ref={viewfinderRef}
           onLayout={() => measureEl('viewfinder', viewfinderRef)}
-          className="flex-1 mt-2 relative justify-center items-center bg-black/10 rounded-[32px] border border-white/70 overflow-hidden shadow-sm"
+          className="flex-1 mt-2 relative justify-center items-center bg-black/10 rounded-full border border-white/70 overflow-hidden shadow-sm"
         >
-          {/* Live Camera View or Permission Prompt */}
-          {permission?.granted ? (
-            <CameraView
-              style={StyleSheet.absoluteFill}
-              facing={facing}
-              enableTorch={Platform.OS !== 'web' && facing === 'back' && enableTorch}
-            />
-          ) : (
-            <View className="bg-white/75 rounded-3xl p-6 px-8 items-center justify-center border border-white/80 shadow-sm max-w-[280px]">
-              <View className="mb-2">
-                <SymbolView
-                  name={{ ios: 'camera.fill', android: 'photo_camera', web: 'photo_camera' }}
-                  tintColor="#0E8549"
-                  size={44}
-                />
-              </View>
-              <Text className="text-slate-800 text-xl font-hanken-bold text-center mt-1">
-                Akses Kamera
-              </Text>
-              <Text className="text-slate-500 text-sm font-hanken-medium text-center mt-1 mb-4">
-                Aplikasi memerlukan izin untuk menggunakan kamera
-              </Text>
-              <Pressable
-                onPress={requestPermission}
-                className="bg-[#0E8549] px-6 py-3 rounded-full active:bg-[#0B6B3A]"
-              >
-                <Text className="text-white font-hanken-semibold text-sm">
-                  Izinkan Akses Kamera
-                </Text>
-              </Pressable>
-            </View>
-          )}
-
-          {/* Viewfinder Corner Brackets Overlay */}
-          {/* Top-Left */}
-          <View
-            pointerEvents="none"
-            className="absolute top-6 left-6 w-9 h-9 border-t-[2.5px] border-l-[2.5px] border-[#65C294] rounded-tl-2xl z-10"
-          />
-          {/* Top-Right */}
-          <View
-            pointerEvents="none"
-            className="absolute top-6 right-6 w-9 h-9 border-t-[2.5px] border-r-[2.5px] border-[#65C294] rounded-tr-2xl z-10"
-          />
-          {/* Bottom-Left */}
-          <View
-            pointerEvents="none"
-            className="absolute bottom-6 left-6 w-9 h-9 border-b-[2.5px] border-l-[2.5px] border-[#65C294] rounded-bl-2xl z-10"
-          />
-          {/* Bottom-Right */}
-          <View
-            pointerEvents="none"
-            className="absolute bottom-6 right-6 w-9 h-9 border-b-[2.5px] border-r-[2.5px] border-[#65C294] rounded-br-2xl z-10"
+          {/* Live Camera via LipCaptureView (vision-camera + frame processor) */}
+          <LipCaptureView
+            facing={facing}
+            enableTorch={enableTorch}
+            isRecording={isRecording}
+            sessionActive={isRecording}
           />
 
-          {/* Camera Guidance Pill Overlay (When camera is active) */}
-          {permission?.granted && (
+          {/* Ring lingkaran halus pengganti corner brackets (cocok dengan bentuk bulat) */}
+          <View
+            pointerEvents="none"
+            className="absolute inset-3 rounded-full border-2 border-[#65C294]/60 z-10"
+          />
+
+          {/* Status Pill — di atas box kamera (sisa space kecil) */}
+          <View
+            pointerEvents="none"
+            className="absolute top-4 left-0 right-0 items-center z-20"
+          >
             <View
-              pointerEvents="none"
-              className="absolute bottom-5 bg-black/60 px-4 py-2 rounded-full border border-white/20 z-10"
+              className={`px-4 py-1.5 rounded-full border ${
+                engineState === 'recording'
+                  ? 'bg-[#D92D20]/85 border-white/30'
+                  : engineState === 'waiting'
+                  ? faceDetected
+                    ? 'bg-[#0E8549]/85 border-white/30'
+                    : 'bg-amber-500/85 border-white/30'
+                  : 'bg-black/60 border-white/20'
+              }`}
             >
-              <Text className="text-white text-xs font-hanken-medium tracking-wide">
-                Mengarahkan ke subjek
+              <Text className="text-white text-xs font-hanken-semibold tracking-wide">
+                {engineState === 'recording'
+                  ? 'Merekam…'
+                  : engineState === 'waiting'
+                  ? faceDetected
+                    ? 'Silakan berbicara'
+                    : 'Arahkan wajah ke kamera'
+                  : 'Kamera siap'}
               </Text>
             </View>
-          )}
+          </View>
         </View>
 
-        {/* ── Output Konversi Card ── */}
+        {/* ── Output Konversi Card (3 kondisi, PART A.4) ── */}
         <View
           ref={outputCardRef}
           onLayout={() => measureEl('outputCard', outputCardRef)}
-          className="bg-white rounded-3xl p-6 shadow-sm mt-4 min-h-[145px] justify-start border border-slate-100/60"
+          className="bg-white rounded-3xl p-6 shadow-sm mt-4 min-h-[240px] justify-start border border-slate-100/60"
           style={{
             shadowColor: '#000',
             shadowOffset: { width: 0, height: 4 },
@@ -302,13 +287,61 @@ export default function RecordScreen() {
           <Text className="text-slate-800 text-[22px] font-hanken-bold leading-tight">
             Output{'\n'}Konversi
           </Text>
-          <Text
-            className={`text-base font-hanken-medium mt-3 ${
-              isRecording ? 'text-[#0E8549]' : 'text-slate-500'
-            }`}
-          >
-            {isRecording ? 'Merekam... Bahasa isyarat diproses' : 'Menunggu masukan...'}
-          </Text>
+
+          {/* Kondisi 1: WAITING_FOR_OPEN aktif */}
+          {captureState === 'listening' && results.length === 0 && pending.length === 0 && (
+            <Text className="text-[#0E8549] text-base font-hanken-medium mt-3">
+              Mendengarkan...
+            </Text>
+          )}
+
+          {/* Kondisi 2: ada clip diproses — list kata terurut + spinner utk pending */}
+          {(results.length > 0 || pending.length > 0) && (
+            <View className="mt-3 gap-1.5">
+              {/* Hasil selesai (terurut by sequenceId) */}
+              {results.map((r) => (
+                <View key={`r-${r.sequenceId}`} className="flex-row items-center gap-2">
+                  <SymbolView
+                    name={{ ios: 'checkmark.circle.fill', android: 'check_circle', web: 'check_circle' }}
+                    tintColor="#0E8549"
+                    size={16}
+                  />
+                  <Text className="text-slate-800 text-base font-hanken-semibold">{r.word}</Text>
+                  <Text className="text-slate-400 text-xs font-hanken-medium">
+                    {Math.round(r.confidence * 100)}%
+                  </Text>
+                </View>
+              ))}
+              {/* Pending (masih diproses / gagal) */}
+              {pending.map((p) => (
+                <View key={`p-${p.sequenceId}`} className="flex-row items-center gap-2">
+                  {p.status === 'failed' ? (
+                    <SymbolView
+                      name={{ ios: 'xmark.circle.fill', android: 'cancel', web: 'cancel' }}
+                      tintColor="#D92D20"
+                      size={16}
+                    />
+                  ) : (
+                    <View className="w-4 h-4 rounded-full border-2 border-[#0E8549]/40 border-t-[#0E8549] animate-spin" />
+                  )}
+                  <Text
+                    className={`text-base font-hanken-medium ${
+                      p.status === 'failed' ? 'text-slate-400' : 'text-slate-500'
+                    }`}
+                  >
+                    {p.status === 'failed' ? 'Gagal menangkap' : 'Memproses...'}
+                  </Text>
+                </View>
+              ))}
+            </View>
+          )}
+
+          {/* Kondisi 3: IDLE — teks status asli */}
+          {captureState === 'idle' && results.length === 0 && pending.length === 0 && (
+            <Text className="text-slate-500 text-base font-hanken-medium mt-3">
+              Menunggu masukan...
+            </Text>
+          )}
         </View>
 
         {/* ── Bottom Action Controls ── */}
@@ -365,7 +398,7 @@ export default function RecordScreen() {
             </View>
           </Pressable>
 
-          {/* Mic / Record Button (Center, Larger) */}
+          {/* Mic / Record Button (Center, Larger) — start/stop SESI */}
           <Pressable
             ref={recordRef}
             onPress={toggleRecording}
@@ -407,7 +440,6 @@ export default function RecordScreen() {
             onPress={toggleCameraFacing}
             onLayout={() => measureEl('flip', flipRef)}
             className="items-center justify-center active:opacity-80"
-            disabled={!permission?.granted}
           >
             <View
               className="w-16 h-16 rounded-full p-1 items-center justify-center"

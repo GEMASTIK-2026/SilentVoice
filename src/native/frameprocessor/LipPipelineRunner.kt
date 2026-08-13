@@ -18,6 +18,7 @@ import com.google.mediapipe.tasks.vision.facelandmarker.FaceLandmarkerResult
 import com.mrousavy.camera.frameprocessors.Frame
 import com.mrousavy.camera.core.types.Orientation
 import java.nio.ByteBuffer
+import java.nio.ByteOrder
 import kotlin.concurrent.thread
 
 /**
@@ -422,7 +423,11 @@ class LipPipelineRunner(private val reactContext: ReactApplicationContext) {
     }
 
     private fun floatArrayToBase64(arr: FloatArray): String {
-        val bytes = ByteBuffer.allocate(arr.size * 4)
+        // PENTING: tulis sebagai LITTLE-ENDIAN supaya byte-order cocok dgn
+        // Float32Array di JS (useCaptureEngine.ts: Float32Array = LE). Sebelumnya
+        // ByteBuffer default BE → semua input ONNX terbaca byte-terbalik (korup):
+        // landmark/visual tampak ~1e37 & NaN padahal precompute valid.
+        val bytes = ByteBuffer.allocate(arr.size * 4).order(ByteOrder.LITTLE_ENDIAN)
         val buf = bytes.asFloatBuffer()
         buf.put(arr)
         return Base64.encodeToString(bytes.array(), Base64.NO_WRAP)

@@ -7,6 +7,8 @@ import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { KamusContent } from '@/components/kamus-content';
+
 
 type HelpSubTab = 'faq' | 'kamus' | 'history';
 
@@ -54,24 +56,6 @@ const FAQ_ITEMS: MenuItem[] = [
     subtitle: 'Beri tahu kami apa yang terjadi',
     icon: { ios: 'ant', android: 'bug_report', web: 'bug_report' },
   },
-];
-
-interface KamusItem {
-  id: string;
-  word: string;
-}
-
-const KAMUS_ITEMS: KamusItem[] = [
-  { id: '1', word: 'Maaf' },
-  { id: '2', word: 'Tolong' },
-  { id: '3', word: 'Permisi' },
-  { id: '4', word: 'Halo' },
-  { id: '5', word: 'Mulai' },
-  { id: '6', word: 'Berhenti' },
-  { id: '7', word: 'Lanjut' },
-  { id: '8', word: 'Sakit' },
-  { id: '9', word: 'Kembali' },
-  { id: '10', word: 'Awas' },
 ];
 
 const FAQ_ITEMS_EXT: MenuItem[] = [
@@ -245,7 +229,7 @@ export default function HelpScreen() {
 
               {/* Tab 2: Kamus */}
               <Pressable
-                onPress={() => router.push('/kamus')}
+                onPress={() => setActiveTab('kamus')}
                 className={`flex-1 py-2.5 rounded-full items-center justify-center ${
                   activeTab === 'kamus'
                     ? 'bg-white shadow-sm border border-slate-100/80'
@@ -358,40 +342,7 @@ export default function HelpScreen() {
 
             {activeTab === 'kamus' && (
               <View className="gap-2 mt-1">
-                {KAMUS_ITEMS.map((item, index) => (
-                  <Pressable
-                    key={index}
-                    className="bg-white rounded-3xl py-5 px-5 flex-row items-center justify-between border border-slate-100/80 active:opacity-85"
-                    style={{
-                      shadowColor: '#0F172A',
-                      shadowOffset: { width: 0, height: 4 },
-                      shadowOpacity: 0.03,
-                      shadowRadius: 14,
-                      elevation: 1.5,
-                    }}
-                  >
-                    <View className="flex-row items-center flex-1">
-                      {/* Circle Number Badge */}
-                      <View className="w-11 h-11 rounded-full border border-slate-100 items-center justify-center bg-slate-50/40 mr-4">
-                        <Text className="text-slate-900 text-lg font-hanken-bold">
-                          {index + 1}
-                        </Text>
-                      </View>
-
-                      {/* Word Title */}
-                      <Text className="text-slate-900 text-[19px] font-hanken-bold flex-1">
-                        {item.word}
-                      </Text>
-                    </View>
-
-                    {/* Green Arrow */}
-                    <SymbolView
-                      name={{ ios: 'arrow.right', android: 'arrow_forward', web: 'arrow_forward' }}
-                      tintColor="#0E8549"
-                      size={22}
-                    />
-                  </Pressable>
-                ))}
+                <KamusContent />
               </View>
             )}
 

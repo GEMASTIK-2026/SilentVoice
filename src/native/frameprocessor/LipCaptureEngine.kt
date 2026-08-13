@@ -49,6 +49,19 @@ class LipCaptureEngine(private val listener: Listener) {
         // MAR 0.4+ — jauh di atas noise. Floor 0.10 menolak noise namun tak
         // menghalangi bukaan sungguhan.
         private const val OPEN_MAR_FLOOR = 0.10f
+
+        // [FIX CLIP OVERRUN] Floor MAR absolut utk STOP (simetris OPEN_MAR_FLOOR).
+        // Penyebab clip meleset panjang (clip_3 = 121 frame, timeout 8s):
+        //   - marRing di-update HANYA saat WAITING dan BEKU saat RECORDING, sehingga
+        //     setelah trigger threshold close ter-inflasi oleh MAR onset kata
+        //     (frame 13-19: 0.04-0.17) menjadi ~0.08.
+        //   - Jitter gerakan kecil (kepala/bibir) frame 44-75 (MAR 0.03-0.17)
+        //     terus me-reset closeStreak (17 frame > 0.08), jadi clip tak pernah
+        //     berhenti di akhir kata pertama → menangkap kata kedua & timeout.
+        // Floor 0.10 membuat 20 frame MAR < 0.10 menumpuk di jitter (<0.10) sehingga
+        // clip berhenti tepat di akhir kata (verifikasi sim: stop di frame 49,
+        // hanya kata pertama, tanpa menunggu timeout).
+        private const val CLOSE_MAR_FLOOR = 0.10f
     }
 
     private var state = State.IDLE
@@ -144,7 +157,9 @@ class LipCaptureEngine(private val listener: Listener) {
                 clipDetectedFrames++
 
                 // Mulut tertutup stabil — hysteresis: berhenti hanya saat MAR kembali ≤ +0.5σ baseline
-                val threshold = currentThreshold(LipConfig.MAR_K_STD_CLOSE)
+                // [FIX CLIP OVERRUN] max dengan CLOSE_MAR_FLOOR agar jitter kecil (0.03-0.17)
+                // tidak menunda stop tak terbatas (lihat konstanta CLOSE_MAR_FLOOR).
+                val threshold = maxOf(currentThreshold(LipConfig.MAR_K_STD_CLOSE), CLOSE_MAR_FLOOR)
                 if (frame.mar < threshold) {
                     closeStreak++
                     if (closeStreak >= CLOSE_STABLE_FRAMES) {

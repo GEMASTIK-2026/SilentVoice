@@ -1,13 +1,12 @@
 import { AccuracySparklineCard } from '@/components/accuracy-sparkline-card';
 import { CircularProgressCard } from '@/components/circular-progress-card';
-import { type SpotlightStep } from '@/components/spotlight-overlay';
-import { useNavMeasurement, useSpotlight } from '@/contexts/nav-measurement-context';
+import { useTutorial, useTutorialTarget, type TutorialStep } from '@/contexts/tutorial-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Image } from 'expo-image';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { SymbolView } from 'expo-symbols';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -17,85 +16,84 @@ type UserProfile = {
   gender: 'pria' | 'wanita';
 };
 
-// Template steps — hanya berisi metadata (title, desc, icon, tooltipPosition).
-// highlightArea akan diisi secara dinamis berdasarkan posisi aktual elemen di layar.
-const HOME_STEP_TEMPLATES: Omit<SpotlightStep, 'highlightArea'>[] = [
+const HOME_TUTORIAL_STEPS: TutorialStep[] = [
   {
     id: 'step_header',
+    targetKey: 'step_header',
     title: 'Profil & Dashboard Utama',
     description:
       'Selamat datang di SilentVoice! Bagian atas ini menampilkan salam profil pengguna dan notifikasi aplikasi Anda.',
     icon: { ios: 'house.fill', android: 'home', web: 'home' },
     tooltipPosition: 'bottom',
-    tooltipOffset: -70,
+    spotlightPadding: 8,
   },
   {
     id: 'notif',
+    targetKey: 'notif',
     title: 'Notifikasi',
     description:
       'Tombol ini berfungsi untuk membuka fitur notifikasi, yang akan menampilkan informasi tentang update apa saja yang ada pada aplikasi.',
     icon: { ios: 'bell.fill', android: 'notifications', web: 'notifications' },
     tooltipPosition: 'bottom',
-    tooltipOffset: -70,
+    spotlightPadding: 6,
+    spotlightRadius: 28,
   },
   {
     id: 'step_features',
+    targetKey: 'step_features',
     title: 'Riwayat & Statistik Konversi',
     description:
       'Akses riwayat percakapan lipreading sebelumnya serta informasi ketepatan hasil konversi gerakan bibir Anda.',
     icon: { ios: 'clock.arrow.circlepath', android: 'history', web: 'history' },
     tooltipPosition: 'bottom',
-    tooltipOffset: -40,
+    spotlightPadding: 8,
   },
   {
     id: 'step_audio',
+    targetKey: 'step_audio',
     title: 'Pengaturan Output Suara',
     description:
       'Atur kejelasan dan volume output ucapan suara hasil konversi lipreading agar terdengar jernih oleh lawan bicara.',
     icon: { ios: 'speaker.wave.2.fill', android: 'volume_up', web: 'volume_up' },
     tooltipPosition: 'top',
-    tooltipOffset: 20,
+    spotlightPadding: 8,
   },
   {
     id: 'step_record_btn',
+    targetKey: 'step_record_btn',
     title: 'Tombol Rekam Utama Lipreading',
     description:
       'Tekan tombol mikrofon merah di tengah bawah ini untuk langsung membuka kamera dan mulai membaca gerak bibir.',
     icon: { ios: 'mic.fill', android: 'mic', web: 'mic' },
     tooltipPosition: 'top',
-    tooltipOffset: 20,
+    spotlightPadding: 8,
+    spotlightRadius: 44,
   },
   {
     id: 'help_btn',
+    targetKey: 'help_btn',
     title: 'Tombol Bantuan',
     description:
       'Tekan ikon tanda tanya ini untuk membuka menu bantuan, yang berisi informasi tentang cara menggunakan aplikasi dan fitur-fitur yang tersedia.',
     icon: { ios: 'questionmark.circle.fill', android: 'help', web: 'help' },
     tooltipPosition: 'top',
+    spotlightPadding: 8,
+    spotlightRadius: 38,
   },
 ];
-
-/** Padding sisi kiri/kanan yang digunakan sebagai default highlight area */
-const H_PAD = 20;
 
 export default function HomeScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{ startTutorial?: string }>();
-  const { navMeasurements, getMeasurements } = useNavMeasurement();
-  const { showSpotlight } = useSpotlight();
+  const { showTutorial } = useTutorial();
 
   const [user, setUser] = useState<UserProfile | null>(null);
-  // Flag: apakah tutorial perlu ditampilkan (belum pernah dilihat)
-  const shouldShowTutorialRef = useRef(false);
 
-  // Refs untuk setiap elemen yang akan di-highlight
-  const headerRef = useRef<View>(null);
-  const notifRef = useRef<View>(null);
-  const topCardsRef = useRef<View>(null);
-  const audioCardRef = useRef<View>(null);
-
-  // Satu store untuk pengukuran elemen lokal halaman ini
-  const measurementsRef = useRef<Record<string, { x: number; y: number; width: number; height: number }>>({});
+  // Target element refs for tutorial spotlight registration
+  const headerRef = useTutorialTarget('step_header');
+  const notifRef = useTutorialTarget('notif');
+  const topCardsRef = useTutorialTarget('step_features');
+  const audioCardRef = useTutorialTarget('step_audio');
 
   useEffect(() => {
     const loadUserAndTutorial = async () => {
@@ -103,96 +101,26 @@ export default function HomeScreen() {
         const raw = await AsyncStorage.getItem('user_profile');
         if (raw) setUser(JSON.parse(raw));
 
-        if (params.startTutorial === 'true') {
-          shouldShowTutorialRef.current = true;
-        } else {
+        let isForce = params.startTutorial === 'true';
+        let shouldShow = isForce;
+
+        if (!isForce) {
           const hasSeenTutorial = await AsyncStorage.getItem('has_seen_tutorial');
-          shouldShowTutorialRef.current = hasSeenTutorial !== 'true';
+          shouldShow = hasSeenTutorial !== 'true';
+        }
+
+        if (shouldShow) {
+          // Delay trigger slightly to allow layout to settle
+          setTimeout(() => {
+            showTutorial(HOME_TUTORIAL_STEPS, { force: isForce });
+          }, 150);
         }
       } catch (e) {
         console.error('Gagal membaca profil user / status tutorial:', e);
       }
     };
     loadUserAndTutorial();
-  }, [params.startTutorial]);
-
-  /**
-   * Membaca semua pengukuran (lokal + dari nav bar via context) dan membangun dynamicSteps.
-   * Dipanggil setiap kali satu elemen selesai diukur.
-   */
-  const buildDynamicSteps = useCallback(() => {
-    const m = measurementsRef.current;
-    // Ambil posisi tombol nav bar dari context (diukur oleh BottomNavigationBar persisten)
-    const currentNav = getMeasurements();
-
-    const steps: SpotlightStep[] = HOME_STEP_TEMPLATES.map((template) => {
-      let highlightArea: SpotlightStep['highlightArea'];
-
-      switch (template.id) {
-        case 'step_header': {
-          const v = m.header;
-          highlightArea = v ? { top: v.y, left: H_PAD, right: H_PAD, height: v.height, borderRadius: 16 } : undefined;
-          break;
-        }
-        case 'notif': {
-          const v = m.notif;
-          highlightArea = v ? { top: v.y - 4, left: v.x - 4, width: v.width + 8, height: v.height + 8, borderRadius: 28 } : undefined;
-          break;
-        }
-        case 'step_features': {
-          const v = m.topCards;
-          highlightArea = v ? { top: v.y, left: H_PAD, right: H_PAD, height: v.height, borderRadius: 24 } : undefined;
-          break;
-        }
-        case 'step_audio': {
-          const v = m.audioCard;
-          highlightArea = v ? { top: v.y, left: H_PAD, right: H_PAD, height: v.height, borderRadius: 24 } : undefined;
-          break;
-        }
-        case 'step_record_btn': {
-          const v = currentNav.recordBtn;
-          highlightArea = v ? { top: v.y - 4, left: v.x - 4, width: v.width + 8, height: v.height + 8, borderRadius: (v.width / 2) + 4 } : undefined;
-          break;
-        }
-        case 'help_btn': {
-          const v = currentNav.helpBtn;
-          highlightArea = v ? { top: v.y - 4, left: v.x - 4, width: v.width + 8, height: v.height + 8, borderRadius: (v.width / 2) + 4 } : undefined;
-          break;
-        }
-      }
-
-      return { ...template, highlightArea };
-    });
-
-    // Kirim steps ke global SpotlightOverlay (di level layout, di atas nav bar)
-    // hanya jika tutorial memang harus ditampilkan
-    if (shouldShowTutorialRef.current) {
-      showSpotlight(steps, { force: params.startTutorial === 'true' });
-    }
-  }, [getMeasurements, showSpotlight, params.startTutorial]);
-
-  // Re-build dynamic steps setiap kali navMeasurements dari BottomNavigationBar ter-update
-  useEffect(() => {
-    buildDynamicSteps();
-  }, [navMeasurements, buildDynamicSteps]);
-
-  /**
-   * Mengukur satu elemen dengan requestAnimationFrame untuk timing yang akurat,
-   * lalu menyimpan hasilnya dan rebuild steps.
-   */
-  const measureEl = useCallback((key: string, ref: React.RefObject<View | null>) => {
-    const doMeasure = () => {
-      ref.current?.measureInWindow((x, y, width, height) => {
-        if (width > 0 && height > 0) {
-          measurementsRef.current[key] = { x, y, width, height };
-          buildDynamicSteps();
-        } else {
-          setTimeout(doMeasure, 100);
-        }
-      });
-    };
-    requestAnimationFrame(doMeasure);
-  }, [buildDynamicSteps]);
+  }, [params.startTutorial, showTutorial]);
 
   const handleDevLogout = async () => {
     try {
@@ -242,7 +170,6 @@ export default function HomeScreen() {
         {/* ── Header - Top App Bar ── */}
         <View
           ref={headerRef}
-          onLayout={() => measureEl('header', headerRef)}
           className="w-full h-16.25 px-[20.3px] flex-row items-center justify-between bg-white"
           style={{
             shadowColor: '#0F172A',
@@ -286,7 +213,6 @@ export default function HomeScreen() {
           {/* Button (Notification Bell) */}
           <Pressable
             ref={notifRef}
-            onLayout={() => measureEl('notif', notifRef)}
             className="w-[40.64px] h-[40.64px] rounded-full bg-white border border-slate-100 items-center justify-center"
             style={{
               shadowColor: '#0F172A',
@@ -326,14 +252,10 @@ export default function HomeScreen() {
           )}
         </View>
 
-        {/* ── Feature Cards (Takes up remaining vertical space) ── */}
+        {/* ── Feature Cards ── */}
         <View style={{ flex: 1 }} className="px-6 pt-4 gap-4">
           {/* Top row: 2 columns */}
-          <View
-            ref={topCardsRef}
-            onLayout={() => measureEl('topCards', topCardsRef)}
-            className="flex-row gap-4"
-          >
+          <View ref={topCardsRef} className="flex-row gap-4">
             {/* Card 1: History */}
             <View
               className="bg-white flex-1 py-36 rounded-3xl p-5 border border-slate-100/80 active:opacity-90"
@@ -381,7 +303,6 @@ export default function HomeScreen() {
           {/* Card 4: Voice Output Settings */}
           <Pressable
             ref={audioCardRef}
-            onLayout={() => measureEl('audioCard', audioCardRef)}
             className="bg-white w-full rounded-3xl p-5 items-center justify-center border border-slate-100/80"
             style={{
               minHeight: 200,
@@ -405,7 +326,6 @@ export default function HomeScreen() {
           </Pressable>
         </View>
       </View>
-
     </SafeAreaView>
   );
 }

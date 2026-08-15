@@ -1,57 +1,67 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
 import { CameraView, useCameraPermissions, CameraType } from 'expo-camera';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ImageBackground, Platform, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import Animated, { useSharedValue, useAnimatedStyle, withTiming, Easing } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { SpotlightOverlay, type SpotlightStep } from '@/components/spotlight-overlay';
+import { useTutorial, useTutorialTarget, type TutorialStep } from '@/contexts/tutorial-context';
 
-// Template steps — hanya berisi metadata (title, desc, icon, tooltipPosition).
-// highlightArea akan diisi secara dinamis dari hasil measureInWindow.
-const RECORD_STEP_TEMPLATES: Omit<SpotlightStep, 'highlightArea'>[] = [
+const RECORD_TUTORIAL_STEPS: TutorialStep[] = [
   {
     id: 'step_viewfinder',
+    targetKey: 'step_viewfinder',
     title: 'Posisikan Bibir & Wajah',
     description:
       'Arahkan kamera tepat ke area mulut pasien laringektomi. Bingkai hijau membantu Anda memastikan posisi bibir sejajar dengan sensor.',
     icon: { ios: 'camera.viewfinder', android: 'center_focus_strong', web: 'center_focus_strong' },
     tooltipPosition: 'bottom',
-    tooltipOffset: -40,
+    spotlightPadding: 8,
+    spotlightRadius: 36,
   },
   {
     id: 'step_output',
+    targetKey: 'step_output',
     title: 'Hasil Teks Konversi',
     description:
       'Teks kalimat hasil terjemahan gerak bibir akan muncul di kotak ini dan langsung dapat disuarakan untuk berkomunikasi dengan orang lain.',
     icon: { ios: 'text.bubble.fill', android: 'subtitles', web: 'subtitles' },
     tooltipPosition: 'top',
-    tooltipOffset: 20,
+    spotlightPadding: 8,
   },
   {
     id: 'step_torch',
+    targetKey: 'step_torch',
     title: 'Bantuan Lampu Senter',
     description:
       'Jika ruangan kurang redup atau di malam hari, aktifkan lampu senter ini agar pergerakan bibir terdeteksi dengan tajam dan akurat.',
     icon: { ios: 'flashlight.on.fill', android: 'flashlight_on', web: 'flashlight_on' },
     tooltipPosition: 'top',
+    spotlightPadding: 8,
+    spotlightRadius: 36,
   },
   {
     id: 'step_record',
+    targetKey: 'step_record',
     title: 'Tombol Rekam & Terjemahkan',
     description:
       'Tekan tombol rekam utama di tengah untuk memulai membaca gerak bibir secara otomatis. Tekan kembali jika sudah selesai berbicara.',
     icon: { ios: 'mic.fill', android: 'mic', web: 'mic' },
     tooltipPosition: 'top',
+    spotlightPadding: 8,
+    spotlightRadius: 44,
   },
   {
     id: 'step_reverse',
+    targetKey: 'step_reverse',
     title: 'Ganti Mode Kamera',
     description:
       'Tekan tombol ini untuk mengganti tampilan kamera dari depan ke belakang, atau sebaliknya, sesuai kebutuhan Anda.',
     icon: { ios: 'arrow.triangle.2.circlepath', android: 'arrow_forward_ios', web: 'arrow_forward_ios' },
     tooltipPosition: 'top',
+    spotlightPadding: 8,
+    spotlightRadius: 36,
   },
 ];
 
@@ -60,13 +70,14 @@ export default function RecordScreen() {
   const params = useLocalSearchParams<{ startTutorial?: string }>();
   const insets = useSafeAreaInsets();
   const { width: screenWidth } = useWindowDimensions();
-  // Lingkaran mengisi lebar penuh container (px-6 = 24px tiap sisi)
   const circleSize = screenWidth - 24;
 
   const [permission, requestPermission] = useCameraPermissions();
   const [facing, setFacing] = useState<CameraType>('back');
   const [enableTorch, setEnableTorch] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
+
+  const { showTutorial } = useTutorial();
 
   // Shared value untuk animasi crossfade ikon tombol record
   const recordingProgress = useSharedValue(0);
@@ -77,103 +88,37 @@ export default function RecordScreen() {
     });
   }, [isRecording, recordingProgress]);
 
-  // Style opacity untuk crossfade: lingkaran putih (saat tidak rekam) ↔ kotak stop (saat rekam)
   const idleIconStyle = useAnimatedStyle(() => ({ opacity: 1 - recordingProgress.value }));
   const stopIconStyle = useAnimatedStyle(() => ({ opacity: recordingProgress.value }));
 
-  // Tutorial Spotlight states
-  const [showSpotlight, setShowSpotlight] = useState(false);
-  const [currentStepIndex, setCurrentStepIndex] = useState(0);
-  const [dynamicSteps, setDynamicSteps] = useState<SpotlightStep[]>([]);
-
-  // Refs untuk elemen yang akan di-highlight oleh spotlight
-  const viewfinderRef = useRef<View>(null);
-  const outputCardRef = useRef<View>(null);
-  const torchRef = useRef<View>(null);
-  const recordRef = useRef<View>(null);
-  const flipRef = useRef<View>(null);
+  // Register refs untuk target spotlight tutorial
+  const viewfinderRef = useTutorialTarget('step_viewfinder');
+  const outputCardRef = useTutorialTarget('step_output');
+  const torchRef = useTutorialTarget('step_torch');
+  const recordRef = useTutorialTarget('step_record');
+  const flipRef = useTutorialTarget('step_reverse');
 
   useEffect(() => {
     const checkTutorial = async () => {
       try {
         const hasSeenRecordTutorial = await AsyncStorage.getItem('has_seen_record_tutorial');
-        if (params.startTutorial === 'true' || hasSeenRecordTutorial !== 'true') {
-          setShowSpotlight(true);
-          setCurrentStepIndex(0);
+        let isForce = params.startTutorial === 'true';
+        let shouldShow = isForce || hasSeenRecordTutorial !== 'true';
+
+        if (shouldShow) {
+          setTimeout(() => {
+            showTutorial(RECORD_TUTORIAL_STEPS, { force: isForce });
+          }, 150);
         }
       } catch (e) {
         console.error('Gagal mengecek status tutorial rekam:', e);
       }
     };
     checkTutorial();
-  }, [params.startTutorial]);
-
-  // Satu store untuk semua pengukuran
-  const measurementsRef = useRef<Record<string, { x: number; y: number; width: number; height: number }>>({});
-
-  /**
-   * Membaca semua pengukuran dan membangun dynamicSteps.
-   * Dipanggil setiap kali satu elemen selesai diukur.
-   */
-  const buildDynamicSteps = useCallback(() => {
-    const m = measurementsRef.current;
-    const steps: SpotlightStep[] = RECORD_STEP_TEMPLATES.map((template) => {
-      let highlightArea: SpotlightStep['highlightArea'];
-      const PAD = 8;
-
-      switch (template.id) {
-        case 'step_viewfinder': {
-          const v = m.viewfinder;
-          highlightArea = v ? { top: v.y - PAD, left: v.x - PAD, width: v.width + PAD * 2, height: v.height + PAD * 2, borderRadius: 36 } : undefined;
-          break;
-        }
-        case 'step_output': {
-          const v = m.outputCard;
-          highlightArea = v ? { top: v.y - PAD, left: v.x - PAD, width: v.width + PAD * 2, height: v.height + PAD * 2, borderRadius: 28 } : undefined;
-          break;
-        }
-        case 'step_torch': {
-          const v = m.torch;
-          highlightArea = v ? { top: v.y - PAD, left: v.x - PAD, width: v.width + PAD * 2, height: v.height + PAD * 2, borderRadius: (v.width / 2) + PAD } : undefined;
-          break;
-        }
-        case 'step_record': {
-          const v = m.record;
-          highlightArea = v ? { top: v.y - PAD, left: v.x - PAD, width: v.width + PAD * 2, height: v.height + PAD * 2, borderRadius: (v.width / 2) + PAD } : undefined;
-          break;
-        }
-        case 'step_reverse': {
-          const v = m.flip;
-          highlightArea = v ? { top: v.y - PAD, left: v.x - PAD, width: v.width + PAD * 2, height: v.height + PAD * 2, borderRadius: (v.width / 2) + PAD } : undefined;
-          break;
-        }
-      }
-
-      return { ...template, highlightArea };
-    });
-    setDynamicSteps(steps);
-  }, []);
-
-  /**
-   * Mengukur satu elemen dengan requestAnimationFrame untuk timing yang akurat,
-   * lalu menyimpan hasilnya dan rebuild steps.
-   */
-  const measureEl = useCallback((key: string, ref: React.RefObject<View | null>) => {
-    requestAnimationFrame(() => {
-      ref.current?.measureInWindow((x, y, width, height) => {
-        if (width > 0 && height > 0) {
-          measurementsRef.current[key] = { x, y, width, height };
-          buildDynamicSteps();
-        }
-      });
-    });
-  }, [buildDynamicSteps]);
+  }, [params.startTutorial, showTutorial]);
 
   const isTorchSupported = facing === 'back';
   const isTorchDisabled = !permission?.granted || !isTorchSupported;
-
-  // Steps yang aktif: gunakan dynamicSteps jika sudah siap, fallback ke template
-  const activeSteps = dynamicSteps.length > 0 ? dynamicSteps : RECORD_STEP_TEMPLATES as SpotlightStep[];
 
   const toggleCameraFacing = () => {
     setFacing((current) => {
@@ -229,10 +174,9 @@ export default function RecordScreen() {
           </Pressable>
         </View>
 
-        {/* ── Camera Viewfinder — Lingkaran Glassmorphism ── */}
+        {/* ── Camera Viewfinder ── */}
         <View
           ref={viewfinderRef}
-          onLayout={() => measureEl('viewfinder', viewfinderRef)}
           style={{
             width: circleSize,
             height: circleSize,
@@ -252,7 +196,6 @@ export default function RecordScreen() {
             marginTop: 0,
           }}
         >
-          {/* Live Camera atau Prompt Izin */}
           {permission?.granted ? (
             <CameraView
               style={StyleSheet.absoluteFill}
@@ -301,7 +244,6 @@ export default function RecordScreen() {
             </View>
           )}
 
-          {/* Pill panduan — tampil saat kamera aktif */}
           {permission?.granted && (
             <View
               pointerEvents="none"
@@ -317,7 +259,6 @@ export default function RecordScreen() {
         {/* ── Output Konversi Card ── */}
         <View
           ref={outputCardRef}
-          onLayout={() => measureEl('outputCard', outputCardRef)}
           className="bg-white rounded-3xl p-6 shadow-sm mt-4 min-h-72 justify-start border border-slate-100/60"
           style={{
             shadowColor: '#000',
@@ -335,17 +276,16 @@ export default function RecordScreen() {
               isRecording ? 'text-[#0E8549]' : 'text-slate-500'
             }`}
           >
-            {isRecording ? 'Merekam... Bahasa isyarat diproses' : 'Menunggu masukan...'}
+            {isRecording ? 'Merekam... Bahasa isyarat dipproses' : 'Menunggu masukan...'}
           </Text>
         </View>
 
         {/* ── Bottom Action Controls ── */}
         <View className="flex-row items-center justify-center gap-6 mt-6 mb-2">
-          {/* Flashlight / Torch Button */}
+          {/* Flashlight Button */}
           <Pressable
             ref={torchRef}
             onPress={toggleTorch}
-            onLayout={() => measureEl('torch', torchRef)}
             className="items-center justify-center active:opacity-80"
             disabled={isTorchDisabled}
             style={{ opacity: isTorchDisabled ? 0.35 : 1 }}
@@ -393,11 +333,10 @@ export default function RecordScreen() {
             </View>
           </Pressable>
 
-          {/* Mic / Record Button (Center, Larger) */}
+          {/* Record Button */}
           <Pressable
             ref={recordRef}
             onPress={toggleRecording}
-            onLayout={() => measureEl('record', recordRef)}
             className="items-center justify-center active:opacity-80"
           >
             <View
@@ -420,17 +359,14 @@ export default function RecordScreen() {
                   elevation: 6,
                 }}
               >
-              <View style={{ width: 32, height: 32, alignItems: 'center', justifyContent: 'center' }}>
-                {/* Lingkaran putih — tampil saat tidak merekam */}
-                <Animated.View style={[StyleSheet.absoluteFill, idleIconStyle, { alignItems: 'center', justifyContent: 'center' }]}>
-                  <View className="w-6 h-6 rounded-full bg-white" />
-                </Animated.View>
-
-                {/* Icon kotak (stop) — tampil saat merekam */}
-                <Animated.View style={[StyleSheet.absoluteFill, stopIconStyle, { alignItems: 'center', justifyContent: 'center' }]}>
-                  <View className='w-6 h-6 rounded-none bg-white' />
-                </Animated.View>
-              </View>
+                <View style={{ width: 32, height: 32, alignItems: 'center', justifyContent: 'center' }}>
+                  <Animated.View style={[StyleSheet.absoluteFill, idleIconStyle, { alignItems: 'center', justifyContent: 'center' }]}>
+                    <View className="w-6 h-6 rounded-full bg-white" />
+                  </Animated.View>
+                  <Animated.View style={[StyleSheet.absoluteFill, stopIconStyle, { alignItems: 'center', justifyContent: 'center' }]}>
+                    <View className="w-6 h-6 rounded-none bg-white" />
+                  </Animated.View>
+                </View>
               </View>
             </View>
           </Pressable>
@@ -439,7 +375,6 @@ export default function RecordScreen() {
           <Pressable
             ref={flipRef}
             onPress={toggleCameraFacing}
-            onLayout={() => measureEl('flip', flipRef)}
             className="items-center justify-center active:opacity-80"
             disabled={!permission?.granted}
           >
@@ -473,23 +408,6 @@ export default function RecordScreen() {
           </Pressable>
         </View>
       </View>
-
-      {/* ── Interactive Spotlight Overlay Guide ── */}
-      <SpotlightOverlay
-        visible={showSpotlight}
-        steps={activeSteps}
-        currentStepIndex={currentStepIndex}
-        onNext={() => setCurrentStepIndex((prev) => Math.min(prev + 1, activeSteps.length - 1))}
-        onPrev={() => setCurrentStepIndex((prev) => Math.max(prev - 1, 0))}
-        onFinish={async () => {
-          setShowSpotlight(false);
-          await AsyncStorage.setItem('has_seen_record_tutorial', 'true');
-        }}
-        onSkip={async () => {
-          setShowSpotlight(false);
-          await AsyncStorage.setItem('has_seen_record_tutorial', 'true');
-        }}
-      />
     </ImageBackground>
   );
 }

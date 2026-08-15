@@ -127,7 +127,7 @@ export default function OnboardingLoginScreen() {
         </View>
 
         <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          behavior={Platform.OS === 'ios' ? 'padding' : (__DEV__ ? 'height' : undefined)}
           className="flex-1 z-10"
         >
           <ScrollView

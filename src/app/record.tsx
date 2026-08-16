@@ -5,7 +5,7 @@ import { ImageBackground, Platform, Pressable, StyleSheet, Text, useWindowDimens
 import Animated, { useSharedValue, useAnimatedStyle, withTiming, Easing } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { SpotlightOverlay, type SpotlightStep } from '@/components/spotlight-overlay';
+import { SpotlightOverlay } from '@/components/spotlight-overlay';
 import { LipCaptureView } from '@/components/lip-capture-view';
 import { useCaptureEngine } from '@/lib/useCaptureEngine';
 import { useTutorial, useTutorialTarget, type TutorialStep } from '@/contexts/tutorial-context';

@@ -1,11 +1,10 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { ImageBackground, Platform, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { ImageBackground, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import Animated, { useSharedValue, useAnimatedStyle, withTiming, Easing } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { SpotlightOverlay } from '@/components/spotlight-overlay';
 import { LipCaptureView } from '@/components/lip-capture-view';
 import { useCaptureEngine } from '@/lib/useCaptureEngine';
 import { useTutorial, useTutorialTarget, type TutorialStep } from '@/contexts/tutorial-context';

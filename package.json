@@ -41,6 +41,8 @@
   "devDependencies": {
     "@tailwindcss/postcss": "^4.3.3",
     "@types/react": "~19.2.2",
+    "eslint": "^9.0.0",
+    "eslint-config-expo": "~57.0.1",
     "patch-package": "^8.0.1",
     "postcss": "^8.5.22",
     "tailwindcss": "^4.3.3",

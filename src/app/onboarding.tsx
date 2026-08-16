@@ -127,8 +127,8 @@ export default function OnboardingLoginScreen() {
         </View>
 
         <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : (__DEV__ ? 'height' : undefined)}
-          className="flex-1 z-10"
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          style={{ flex: 1, zIndex: 10 }}
         >
           <ScrollView
             contentContainerStyle={{
@@ -138,10 +138,11 @@ export default function OnboardingLoginScreen() {
               paddingHorizontal: 20,
             }}
             keyboardShouldPersistTaps="handled"
-            keyboardDismissMode="on-drag"
+            keyboardDismissMode="interactive"
+            automaticallyAdjustKeyboardInsets
             showsVerticalScrollIndicator={false}
           >
-            <View className="flex-1 justify-center items-center w-full my-auto">
+            <View className="flex-1 items-center w-full py-2">
               {/* Soft Floating Glassmorphic Card Container */}
               <View
                 className="w-full max-w-full border border-white/80 rounded-3xl p-6"

@@ -33,12 +33,6 @@ const FAQ_ITEMS: MenuItem[] = [
     isTutorial: true,
   },
   {
-    id: '1',
-    title: 'Cara Penggunaan',
-    subtitle: 'Pelajari Dasar Penggunaan Silent-Voice',
-    icon: { ios: 'questionmark.circle', android: 'help_outline', web: 'help_outline' },
-  },
-  {
     id: '2',
     title: 'Kalibrasi Kata',
     subtitle: 'Tingkatkan Akurasi kata',
@@ -49,21 +43,6 @@ const FAQ_ITEMS: MenuItem[] = [
     title: 'Pengaturan Akun',
     subtitle: 'Kelola Profil Anda',
     icon: { ios: 'person.circle', android: 'account_circle', web: 'account_circle' },
-  },
-  {
-    id: '4',
-    title: 'Laporan Masalah',
-    subtitle: 'Beri tahu kami apa yang terjadi',
-    icon: { ios: 'ant', android: 'bug_report', web: 'bug_report' },
-  },
-];
-
-const FAQ_ITEMS_EXT: MenuItem[] = [
-  {
-    id: '4',
-    title: 'Report an issue',
-    subtitle: 'Let us know what went wrong',
-    icon: { ios: 'ant', android: 'bug_report', web: 'bug_report' },
   },
 ];
 

@@ -22,6 +22,7 @@ interface MenuItem {
     web: AndroidSymbol;
   };
   isTutorial?: boolean;
+  action?: 'kamus';
 }
 
 const FAQ_ITEMS: MenuItem[] = [
@@ -35,8 +36,9 @@ const FAQ_ITEMS: MenuItem[] = [
   {
     id: '2',
     title: 'Kalibrasi Kata',
-    subtitle: 'Tingkatkan Akurasi kata',
+    subtitle: 'Tingkatkan Akurasi kata (buka tab Kamus)',
     icon: { ios: 'mic', android: 'mic', web: 'mic' },
+    action: 'kamus',
   },
   {
     id: '3',
@@ -273,7 +275,9 @@ export default function HelpScreen() {
                 <Pressable
                   key={item.id}
                   onPress={() => {
-                    if (item.isTutorial) {
+                    if (item.action === 'kamus') {
+                      setActiveTab('kamus');
+                    } else if (item.isTutorial) {
                       router.push('/(tabs)/home?startTutorial=true');
                     } else if (item.id === '3' && __DEV__) {
                       handleDevLogout();

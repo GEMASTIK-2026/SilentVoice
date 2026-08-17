@@ -8,6 +8,7 @@ import { useState } from 'react';
 import {
   Keyboard,
   KeyboardAvoidingView,
+  Modal,
   Platform,
   Pressable,
   ScrollView,
@@ -32,7 +33,8 @@ export default function OnboardingLoginScreen() {
   const router = useRouter();
 
   const [name, setName] = useState('');
-  const [age, setAge] = useState('');
+  const [age, setAge] = useState('21');
+  const [agePickerOpen, setAgePickerOpen] = useState(false);
   const [gender, setGender] = useState<'pria' | 'wanita' | null>(null);
 
 
@@ -188,8 +190,8 @@ export default function OnboardingLoginScreen() {
                         setName(v);
                         if (errors.name) setErrors((e) => ({ ...e, name: '' }));
                       }}
-                      placeholder="Bagaimana Kami Memanggilmu?"
-                      placeholderTextColor="#6B7280"
+                      placeholder="Masukkan nama Anda"
+                      placeholderTextColor="#94A3B8"
                       className="text-[16.57px] text-slate-800 font-hanken-medium"
                       autoCapitalize="words"
                     />
@@ -201,10 +203,10 @@ export default function OnboardingLoginScreen() {
                   )}
                 </View>
 
-                {/* Input 2: Age */}
+                {/* Input 2: Age (Interactive Stepper + Picker Modal) */}
                 <View>
                   <View
-                    className="bg-white rounded-2xl px-4 h-[60.08px] justify-center border"
+                    className="bg-white rounded-2xl px-3 h-[60.08px] flex-row items-center justify-between border"
                     style={[
                       {
                         borderColor: errors.age ? '#EF4444' : 'rgba(241, 245, 249, 0.8)',
@@ -216,23 +218,99 @@ export default function OnboardingLoginScreen() {
                       },
                     ]}
                   >
-                    <TextInput
-                      value={age}
-                      onChangeText={(v) => {
-                        setAge(v);
-                        if (errors.age) setErrors((e) => ({ ...e, age: '' }));
-                      }}
-                      placeholder="Usia"
-                      placeholderTextColor="#6B7280"
-                      keyboardType="number-pad"
-                      className="text-[16.57px] text-slate-800 font-hanken-medium"
-                    />
+                    <Text className="text-[15px] text-slate-500 font-hanken-medium ml-2">
+                      Usia Anda
+                    </Text>
+
+                    <View className="flex-row items-center gap-2">
+                      {/* Stepper Minus */}
+                      <Pressable
+                        onPress={() => {
+                          const current = parseInt(age || '20', 10);
+                          const next = Math.max(5, current - 1);
+                          setAge(String(next));
+                          if (errors.age) setErrors((e) => ({ ...e, age: '' }));
+                        }}
+                        className="w-10 h-10 rounded-xl bg-[#E8F8F0] items-center justify-center active:opacity-70"
+                      >
+                        <Text className="text-[#0E8549] text-xl font-hanken-bold">−</Text>
+                      </Pressable>
+
+                      {/* Age Value - Pressable to open picker */}
+                      <Pressable
+                        onPress={() => setAgePickerOpen(true)}
+                        className="min-w-[50px] items-center justify-center bg-slate-50 px-3 py-1.5 rounded-xl border border-slate-100 active:opacity-70"
+                      >
+                        <Text className="text-[17px] text-[#0E8549] font-hanken-bold">
+                          {age ? `${age} thn` : 'Pilih'}
+                        </Text>
+                      </Pressable>
+
+                      {/* Stepper Plus */}
+                      <Pressable
+                        onPress={() => {
+                          const current = parseInt(age || '20', 10);
+                          const next = Math.min(100, current + 1);
+                          setAge(String(next));
+                          if (errors.age) setErrors((e) => ({ ...e, age: '' }));
+                        }}
+                        className="w-10 h-10 rounded-xl bg-[#E8F8F0] items-center justify-center active:opacity-70"
+                      >
+                        <Text className="text-[#0E8549] text-xl font-hanken-bold">+</Text>
+                      </Pressable>
+                    </View>
                   </View>
                   {errors.age !== '' && (
                     <Text className="text-red-500 text-xs font-hanken-medium mt-1 ml-1">
                       ⚠ {errors.age}
                     </Text>
                   )}
+
+                  {/* Age Picker Modal */}
+                  <Modal
+                    visible={agePickerOpen}
+                    transparent
+                    animationType="slide"
+                    onRequestClose={() => setAgePickerOpen(false)}
+                  >
+                    <Pressable
+                      className="flex-1 bg-black/40 justify-end"
+                      onPress={() => setAgePickerOpen(false)}
+                    >
+                      <View
+                        className="bg-white rounded-t-3xl py-4 px-6"
+                        style={{ maxHeight: '50%' }}
+                      >
+                        <View className="w-12 h-1 bg-slate-300 rounded-full self-center mb-4" />
+                        <Text className="text-center text-slate-800 text-lg font-hanken-bold mb-4">
+                          Pilih Usia
+                        </Text>
+                        <ScrollView showsVerticalScrollIndicator={false}>
+                          {Array.from({ length: 96 }, (_, i) => i + 5).map((num) => (
+                            <Pressable
+                              key={num}
+                              onPress={() => {
+                                setAge(String(num));
+                                setAgePickerOpen(false);
+                                if (errors.age) setErrors((e) => ({ ...e, age: '' }));
+                              }}
+                              className={`py-3 rounded-xl mb-1 ${
+                                age === String(num) ? 'bg-[#E8F8F0]' : 'bg-transparent'
+                              }`}
+                            >
+                              <Text
+                                className={`text-center text-base font-hanken-semibold ${
+                                  age === String(num) ? 'text-[#0E8549]' : 'text-slate-700'
+                                }`}
+                              >
+                                {num} tahun
+                              </Text>
+                            </Pressable>
+                          ))}
+                        </ScrollView>
+                      </View>
+                    </Pressable>
+                  </Modal>
                 </View>
 
                 {/* Gender Selector: Pria / Wanita */}
